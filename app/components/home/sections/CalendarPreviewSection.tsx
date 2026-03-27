@@ -1,0 +1,327 @@
+"use client";
+
+import { getMonthLabel } from "@/app/utils/schedule";
+import type { CalendarPreviewSectionProps, PreviewSortMode } from "@/app/components/home/sections/types";
+
+const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"] as const;
+
+export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
+  const {
+    currentMonth,
+    previewSortMode,
+    setPreviewSortMode,
+    viewMode,
+    setViewMode,
+    showRegularOffInMonth,
+    setShowRegularOffInMonth,
+    monthCells,
+    weekDays,
+    weekFocusDate,
+    setWeekFocusDate,
+    moveWeek,
+    setWeekToToday,
+    getPreviewStaffByDate,
+    assignments,
+    getShiftType,
+    user,
+    inputMode,
+    isAdmin,
+    openCalendarEditor,
+    setSelectedDateDetail,
+  } = props;
+
+  return (
+    <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">カレンダープレビュー</h2>
+          <p className="text-sm text-slate-500">Googleカレンダー風のレイアウトで表示</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">
+            並び順
+            <select
+              className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+              value={previewSortMode}
+              onChange={(event) => setPreviewSortMode(event.target.value as PreviewSortMode)}
+            >
+              <option value="presentFirst">出勤者優先</option>
+              <option value="createdOrder">作成順</option>
+              <option value="name">名前順</option>
+            </select>
+          </label>
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              className={`rounded-xl px-4 py-1.5 text-sm font-medium transition ${
+                viewMode === "month" ? "bg-indigo-500 text-white shadow" : "text-slate-600 hover:bg-slate-100"
+              }`}
+              onClick={() => setViewMode("month")}
+            >
+              月
+            </button>
+            <button
+              type="button"
+              className={`rounded-xl px-4 py-1.5 text-sm font-medium transition ${
+                viewMode === "week" ? "bg-indigo-500 text-white shadow" : "text-slate-600 hover:bg-slate-100"
+              }`}
+              onClick={() => setViewMode("week")}
+            >
+              週
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {viewMode === "month" && (
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-slate-600">{getMonthLabel(currentMonth)}</p>
+            <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showRegularOffInMonth}
+                onChange={(event) => setShowRegularOffInMonth(event.target.checked)}
+              />
+              公休も表示
+            </label>
+          </div>
+          <div className="grid grid-cols-7 gap-1 md:hidden">
+            {WEEKDAY_LABELS.map((weekday) => (
+              <div
+                key={weekday}
+                className={`rounded-lg py-1 text-center text-xs font-semibold ${
+                  weekday === "土"
+                    ? "bg-blue-50 text-blue-700"
+                    : weekday === "日"
+                      ? "bg-rose-50 text-rose-700"
+                      : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {weekday}
+              </div>
+            ))}
+            {monthCells.map((cell) => (
+              <div
+                key={cell.key}
+                className={`min-h-28 rounded-xl border p-2 transition ${
+                  cell.inMonth
+                    ? "border-slate-200 bg-white shadow-sm"
+                    : "border-slate-100 bg-slate-50/40 opacity-60"
+                }`}
+              >
+                <button
+                  type="button"
+                  className={`text-xs ${cell.isWeekend ? "text-rose-600" : "text-slate-500"}`}
+                  onClick={() => setSelectedDateDetail(cell.key)}
+                >
+                  {cell.day}
+                </button>
+                <div className="mt-1 space-y-1">
+                  {(() => {
+                    const events = getPreviewStaffByDate(cell.key)
+                      .map((member) => {
+                        const shiftCode = assignments[cell.key]?.[member.id];
+                        if (!shiftCode) {
+                          return null;
+                        }
+                        if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
+                          return null;
+                        }
+                        return { member, shiftType: getShiftType(shiftCode) };
+                      })
+                      .filter((item) => item !== null);
+                    const visible = events.slice(0, 3);
+                    const hiddenCount = Math.max(0, events.length - visible.length);
+                    return (
+                      <>
+                        {visible.map((event) => (
+                          <button
+                            type="button"
+                            key={`${cell.key}-${event.member.id}`}
+                            className={`w-full truncate rounded px-1 py-0.5 text-left text-[10px] ${
+                              user && inputMode === "calendar" ? "cursor-pointer hover:brightness-95" : ""
+                            }`}
+                            style={{ backgroundColor: event.shiftType.color }}
+                            title={`${event.member.name} ${event.shiftType.label}`}
+                            onClick={() => {
+                              if (user && inputMode === "calendar") {
+                                openCalendarEditor(cell.key, event.member.id);
+                              }
+                            }}
+                          >
+                            {event.member.name}
+                          </button>
+                        ))}
+                        {hiddenCount > 0 && <div className="text-[10px] text-slate-500">+{hiddenCount}件</div>}
+                      </>
+                    );
+                  })()}
+                </div>
+                {user && inputMode === "calendar" && (
+                  <button
+                    type="button"
+                    className="mt-1 w-full rounded border border-dashed border-slate-300 px-1 py-0.5 text-[10px] text-slate-500"
+                    onClick={() => openCalendarEditor(cell.key)}
+                  >
+                    + 編集
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="hidden grid-cols-7 gap-1 md:grid">
+            {WEEKDAY_LABELS.map((weekday) => (
+              <div
+                key={weekday}
+                className={`rounded-lg py-2 text-center text-sm font-semibold ${
+                  weekday === "土"
+                    ? "bg-blue-50 text-blue-700"
+                    : weekday === "日"
+                      ? "bg-rose-50 text-rose-700"
+                      : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {weekday}
+              </div>
+            ))}
+            {monthCells.map((cell) => (
+              <div
+                key={cell.key}
+                className={`min-h-28 rounded-xl border p-2 transition ${
+                  cell.inMonth
+                    ? "border-slate-200 bg-white shadow-sm"
+                    : "border-slate-100 bg-slate-50/40 opacity-70"
+                }`}
+              >
+                <button
+                  type="button"
+                  className={`text-xs ${cell.isWeekend ? "text-rose-600" : "text-slate-500"}`}
+                  onClick={() => setSelectedDateDetail(cell.key)}
+                >
+                  {cell.day}
+                </button>
+                <div className="mt-1 space-y-1">
+                  {getPreviewStaffByDate(cell.key).map((member) => {
+                    const shiftCode = assignments[cell.key]?.[member.id];
+                    const shiftType = getShiftType(shiftCode);
+                    if (!shiftCode) {
+                      return null;
+                    }
+                    if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
+                      return null;
+                    }
+                    return (
+                      <button
+                        type="button"
+                        key={`${cell.key}-${member.id}`}
+                        className={`truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm ${
+                          isAdmin && inputMode === "calendar" ? "cursor-pointer hover:brightness-95" : ""
+                        }`}
+                        style={{ backgroundColor: shiftType.color }}
+                        title={`${member.name} ${shiftType.label}`}
+                        onClick={() => {
+                          if (user && inputMode === "calendar") {
+                            openCalendarEditor(cell.key, member.id);
+                          }
+                        }}
+                      >
+                        {member.name} {shiftType.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {user && inputMode === "calendar" && (
+                  <button
+                    type="button"
+                    className="mt-2 w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
+                    onClick={() => openCalendarEditor(cell.key)}
+                  >
+                    + 追加 / 編集
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {viewMode === "week" && (
+        <div>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100"
+                onClick={setWeekToToday}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-base font-semibold text-slate-700 transition hover:bg-slate-100"
+                onClick={() => moveWeek(-7)}
+                aria-label="前の週"
+              >
+                &lt;
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-base font-semibold text-slate-700 transition hover:bg-slate-100"
+                onClick={() => moveWeek(7)}
+                aria-label="次の週"
+              >
+                &gt;
+              </button>
+            </div>
+            <div className="text-sm font-semibold text-slate-700">
+              {weekDays[0]
+                ? `${weekDays[0].month}/${weekDays[0].day} - ${weekDays[6].month}/${weekDays[6].day}`
+                : ""}
+            </div>
+            <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+              週の基準日
+              <input
+                type="date"
+                value={weekFocusDate}
+                className="rounded-lg border border-slate-300 px-2 py-1 outline-none ring-indigo-100 focus:ring"
+                onChange={(event) => setWeekFocusDate(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
+            {weekDays.map((day) => (
+              <div
+                key={day.key}
+                className={`rounded-2xl border bg-white p-3 shadow-sm ${day.isWeekend ? "border-rose-200" : "border-slate-200"}`}
+              >
+                <div
+                  className={`mb-2 border-b pb-2 text-sm font-semibold ${
+                    day.isWeekend ? "border-rose-100 text-rose-600" : "border-slate-100"
+                  }`}
+                >
+                  {day.weekday} {day.month}/{day.day}
+                </div>
+                <div className="space-y-1">
+                  {getPreviewStaffByDate(day.key).map((member) => {
+                    const code = assignments[day.key]?.[member.id] ?? "REGULAR_OFF";
+                    const shiftType = getShiftType(code);
+                    return (
+                      <div
+                        key={`${day.key}-${member.id}`}
+                        className="flex items-center justify-between rounded-md px-2 py-1 text-xs shadow-sm"
+                        style={{ backgroundColor: shiftType.color }}
+                      >
+                        <span className="truncate">{member.name}</span>
+                        <span className="font-semibold">{shiftType.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

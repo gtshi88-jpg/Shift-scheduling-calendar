@@ -53,6 +53,15 @@ const LEGACY_SHIFT_CODE_MAP: Record<string, ShiftCode> = {
   LATE: "P_SHIFT",
   NIGHT: "P_SHIFT",
 };
+const SHIFT_SELECT_PRIORITY: Record<ShiftCode, number> = {
+  WORK: 0,
+  REGULAR_OFF: 1,
+  ABSENT: 2,
+  PAID_LEAVE: 3,
+  REQUEST_OFF: 4,
+  A_SHIFT: 5,
+  P_SHIFT: 6,
+};
 
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
@@ -238,7 +247,7 @@ export function useHomePageController() {
   const fallback = createInitialData(new Date(2026, 2, 1));
   const [currentMonth, setCurrentMonth] = useState(() => new Date(2026, 2, 1));
   const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [inputMode, setInputMode] = useState<InputMode>("calendar");
+  const [inputMode, setInputMode] = useState<InputMode>("table");
   const [tableRangeMode, setTableRangeMode] = useState<TableRangeMode>("firstHalf");
   const [targetWeekday, setTargetWeekday] = useState(3);
   const [targetWeekend, setTargetWeekend] = useState(2);
@@ -498,11 +507,15 @@ export function useHomePageController() {
     [assignments, mobileTodaySortedStaff, todayKey],
   );
   const getShiftType = (code: ShiftCode | undefined): ShiftType => (code ? SHIFT_MAP[code] ?? SHIFT_MAP.REGULAR_OFF : SHIFT_MAP.REGULAR_OFF);
+  const sortShiftTypesForSelect = (types: ShiftType[]) =>
+    [...types].sort((a, b) => SHIFT_SELECT_PRIORITY[a.code] - SHIFT_SELECT_PRIORITY[b.code]);
   const selectableShiftTypes = (currentCode?: ShiftCode) => {
-    if (isAdmin) return SHIFT_TYPES;
+    if (isAdmin) return sortShiftTypesForSelect(SHIFT_TYPES);
     const base = SHIFT_TYPES.filter((type) => MEMBER_EDITABLE_CODES.includes(type.code));
-    if (currentCode && !MEMBER_EDITABLE_CODES.includes(currentCode)) return [SHIFT_MAP[currentCode], ...base];
-    return base;
+    if (currentCode && !MEMBER_EDITABLE_CODES.includes(currentCode)) {
+      return sortShiftTypesForSelect([SHIFT_MAP[currentCode], ...base]);
+    }
+    return sortShiftTypesForSelect(base);
   };
   const updateAssignment = (dateKey: string, staffId: string, code: ShiftCode) => {
     if (!user) return;

@@ -55,9 +55,9 @@ export default function HomePageRefactored() {
 
   return (
     <>
-      <div className="flex min-h-0 bg-gradient-to-br from-slate-100 via-sky-50 to-indigo-50 text-slate-900 print:hidden max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden md:min-h-screen">
+      <div className="flex bg-gradient-to-br from-slate-100 via-sky-50 to-indigo-50 text-slate-900 print:hidden max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:overflow-hidden md:min-h-screen">
         <HomeNavRail panel={navPanel} onPanelChange={setNavPanel} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:min-h-0 max-md:overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col max-md:min-h-0 max-md:overflow-hidden">
           <div className="mx-auto w-full max-w-7xl shrink-0 px-4 pb-2 pt-2 md:px-8 md:pt-6">
             <HeaderSection
               isAdmin={controller.isAdmin}
@@ -78,7 +78,7 @@ export default function HomePageRefactored() {
               staffJobFilterOptions={controller.staffJobFilterOptions}
             />
           </div>
-          <main className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-4 pb-24 pt-2 md:px-8 lg:pb-8">
+          <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-24 pt-2 md:px-8 lg:pb-8 max-md:min-h-0 max-md:flex-1 max-md:overflow-y-auto max-md:overscroll-y-contain">
             {navPanel === "dashboard" && (
               <>
                 <PanelIntro

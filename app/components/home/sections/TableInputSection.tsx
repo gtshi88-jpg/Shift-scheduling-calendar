@@ -31,6 +31,7 @@ export function TableInputSection(props: TableInputSectionProps) {
     selectableShiftTypes,
     shiftShortLabel,
     updateAssignment,
+    memberMonthLocked,
     totalsByStaff,
     totalsByDate,
     workingCountByDate,
@@ -41,13 +42,13 @@ export function TableInputSection(props: TableInputSectionProps) {
   } = props;
 
   return (
-    <section className="hidden rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:block md:p-6">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
+    <section className="rounded-3xl border border-white/70 bg-white/90 p-3 shadow-lg backdrop-blur sm:p-4 md:p-6">
+      <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
+        <div className="min-w-0 shrink-0">
           <h2 className="text-lg font-semibold">表形式入力</h2>
           <p className="text-xs text-slate-500">横スクロールを減らすため表示範囲を切り替えできます</p>
         </div>
-        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1">
           <button
             type="button"
             className={`rounded-lg px-3 py-1 text-xs font-medium ${
@@ -147,17 +148,17 @@ export function TableInputSection(props: TableInputSectionProps) {
           </label>
         </div>
       )}
-      <div className="overflow-auto rounded-2xl border border-slate-200 shadow-inner">
+      <div className="-mx-1 overflow-x-auto overflow-y-visible rounded-2xl border border-slate-200 shadow-inner sm:mx-0">
         <table className="min-w-full border-collapse text-sm">
           <thead>
             <tr className="bg-slate-50">
-              <th className="sticky left-0 z-10 min-w-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-left">
+              <th className="sticky left-0 z-10 min-w-[7.5rem] border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left sm:min-w-40 sm:px-3">
                 スタッフ
               </th>
               {visibleMonthDays.map((day) => (
                 <th
                   key={day.key}
-                  className="min-w-14 border-b border-r border-slate-200 px-1 py-2 text-center"
+                  className="min-w-12 border-b border-r border-slate-200 px-0.5 py-2 text-center sm:min-w-14 sm:px-1"
                 >
                   <div className={day.isWeekend ? "text-xs text-rose-600" : "text-xs"}>{day.day}</div>
                   <div className="text-[10px] text-slate-400">{day.weekday}</div>
@@ -171,7 +172,7 @@ export function TableInputSection(props: TableInputSectionProps) {
           <tbody>
             {monthVisibleStaff.map((member, index) => (
               <tr key={member.id}>
-                <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-2 align-middle">
+                <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-2 py-2 align-middle sm:px-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span>{member.name}</span>
@@ -215,9 +216,9 @@ export function TableInputSection(props: TableInputSectionProps) {
                   return (
                     <td key={`${member.id}-${day.key}`} className="border-b border-r border-slate-200 p-1">
                       <select
-                        disabled={!user}
+                        disabled={!user || (!isAdmin && memberMonthLocked)}
                         value={selected}
-                        className="w-full rounded-lg border border-slate-200 px-1 py-1 text-[11px] disabled:cursor-not-allowed disabled:bg-slate-100"
+                        className="min-h-11 w-full max-w-[5.5rem] rounded-lg border border-slate-200 px-1 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:bg-slate-100 sm:max-w-none"
                         style={{ backgroundColor: selectedShift.color }}
                         onChange={(event) =>
                           updateAssignment(day.key, member.id, event.target.value as ShiftCode)

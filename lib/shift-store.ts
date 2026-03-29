@@ -2,13 +2,16 @@
 // このファイルはSupabaseのサーバーサイドクライアントを使用してデータを読み書きします
 // このファイルはシフト管理のデータを読み書きするためのファイルです
 
-import type { ShiftAssignmentMap, ShiftCode, StaffMember } from "@/app/types";
+import type { ShiftAssignmentMap, ShiftCode, StaffJobTypeRecord, StaffMember } from "@/app/types";
+import { defaultStaffJobTypesSeed, FALLBACK_STAFF_JOB_TYPE_ID, normalizeStaffJobTypeId } from "@/app/types";
 import { createInitialData } from "@/app/utils/schedule";
+import { readStaffJobTypes } from "@/lib/staff-job-types-store";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 type ShiftStore = {
   staff: StaffMember[];
   assignments: ShiftAssignmentMap;
+  jobTypes: StaffJobTypeRecord[];
 };
 
 type StaffRow = {
@@ -17,6 +20,7 @@ type StaffRow = {
   sort_order: number;
   active_from: string | null;
   active_to: string | null;
+  job_type_id: string | null;
 };
 
 type ShiftRow = {
@@ -29,11 +33,16 @@ export async function readShiftStore(): Promise<ShiftStore> {
   const supabase = createSupabaseServerClient();
 
   try {
-    const { data: staffRows, error: staffError } = await supabase
-      .from("staff_members")
-      .select("id,name,sort_order,active_from,active_to")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
+    const [jobTypes, staffResult] = await Promise.all([
+      readStaffJobTypes(),
+      supabase
+        .from("staff_members")
+        .select("id,name,sort_order,active_from,active_to,job_type_id")
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true }),
+    ]);
+
+    const { data: staffRows, error: staffError } = staffResult;
     if (staffError) {
       throw staffError;
     }
@@ -41,6 +50,7 @@ export async function readShiftStore(): Promise<ShiftStore> {
     const staff: StaffMember[] = (staffRows as StaffRow[]).map((row) => ({
       id: row.id,
       name: row.name,
+      jobTypeId: normalizeStaffJobTypeId(row.job_type_id, FALLBACK_STAFF_JOB_TYPE_ID),
       activeFrom: row.active_from,
       activeTo: row.active_to,
     }));
@@ -65,20 +75,22 @@ export async function readShiftStore(): Promise<ShiftStore> {
       return {
         staff: initial.staff,
         assignments: initial.assignments,
+        jobTypes: jobTypes.length > 0 ? jobTypes : defaultStaffJobTypesSeed(),
       };
     }
 
-    return { staff, assignments };
+    return { staff, assignments, jobTypes: jobTypes.length > 0 ? jobTypes : defaultStaffJobTypesSeed() };
   } catch {
     const initial = createInitialData(new Date(2026, 2, 1));
     return {
       staff: initial.staff,
       assignments: initial.assignments,
+      jobTypes: defaultStaffJobTypesSeed(),
     };
   }
 }
 
-export async function writeShiftStore(value: ShiftStore): Promise<void> {
+export async function writeShiftStore(value: Omit<ShiftStore, "jobTypes">): Promise<void> {
   const supabase = createSupabaseServerClient();
   const staff = value.staff;
   const assignments = value.assignments;
@@ -112,6 +124,7 @@ export async function writeShiftStore(value: ShiftStore): Promise<void> {
     sort_order: index,
     active_from: member.activeFrom ?? null,
     active_to: member.activeTo ?? null,
+    job_type_id: member.jobTypeId,
   }));
 
   if (upsertStaffRows.length > 0) {

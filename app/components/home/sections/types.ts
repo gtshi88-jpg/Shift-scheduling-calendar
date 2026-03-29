@@ -7,6 +7,7 @@ import type {
   ShiftAssignmentMap,
   ShiftCode,
   ShiftType,
+  StaffJobFilter,
   StaffMember,
   ViewMode,
 } from "@/app/types";
@@ -53,6 +54,11 @@ export type HeaderSectionProps = {
   moveMonth: (delta: number) => void;
   miniCalendarCells: MiniCalendarCell[];
   setCurrentMonth: (value: Date) => void;
+  /** false のとき表/カレンダー切替を非表示（ダッシュボード等） */
+  showInputModeToggle?: boolean;
+  staffJobFilter: StaffJobFilter;
+  setStaffJobFilter: Dispatch<SetStateAction<StaffJobFilter>>;
+  staffJobFilterOptions: { value: StaffJobFilter; label: string }[];
 };
 
 export type TodayStatusSectionProps = {
@@ -71,6 +77,15 @@ export type MonthlySummarySectionProps = {
   monthlyTotals: Record<ShiftCode, number>;
   showMonthlySummaryMobile: boolean;
   setShowMonthlySummaryMobile: Dispatch<SetStateAction<boolean>>;
+};
+
+export type MonthComparisonSectionProps = {
+  currentMonthLabel: string;
+  shiftTypes: ShiftType[];
+  monthlyTotals: Record<ShiftCode, number>;
+  monthlyTotalsPrevMonth: Record<ShiftCode, number>;
+  monthlyTotalsPrevYearSameMonth: Record<ShiftCode, number>;
+  monthComparisonLabels: { prevMonth: string; prevYearSameMonth: string };
 };
 
 export type TableInputSectionProps = {
@@ -98,6 +113,7 @@ export type TableInputSectionProps = {
   selectableShiftTypes: (currentCode?: ShiftCode) => ShiftType[];
   shiftShortLabel: Record<ShiftCode, string>;
   updateAssignment: (dateKey: string, staffId: string, code: ShiftCode) => void;
+  memberMonthLocked: boolean;
   totalsByStaff: TotalsByMember;
   totalsByDate: TotalsByDate;
   workingCountByDate: Record<string, number>;
@@ -126,7 +142,10 @@ export type CalendarPreviewSectionProps = {
   getShiftType: (code: ShiftCode | undefined) => ShiftType;
   user: AuthUser | null;
   inputMode: InputMode;
-  isAdmin: boolean;
   openCalendarEditor: (dateKey: string, preferredStaffId?: string) => void;
   setSelectedDateDetail: Dispatch<SetStateAction<string | null>>;
+  calendarEditingLocked: boolean;
+  onPrint: () => void;
+  /** true のときカレンダー上の編集UIを出さない（シフト確認タブ用） */
+  readOnly?: boolean;
 };

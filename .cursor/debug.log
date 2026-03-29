@@ -1,2 +1,1 @@
-{"runId":"post-fix-1","hypothesisId":"H6","location":"app/page.tsx:loadStoredState","message":"loaded assignments from localStorage","data":{"assignmentDateCount":31,"uniqueCodes":["WORK","P_SHIFT","REGULAR_OFF"],"migratedCount":0,"unknownCount":0},"timestamp":1774579290265}
-{"runId":"post-fix-1","hypothesisId":"H6","location":"app/page.tsx:loadStoredState","message":"loaded assignments from localStorage","data":{"assignmentDateCount":31,"uniqueCodes":["WORK","P_SHIFT","REGULAR_OFF"],"migratedCount":0,"unknownCount":0},"timestamp":1774579290271}
+{"location":"app/api/auth/login/route.ts:success","message":"signIn + getAuthUser ok","data":{"hypothesisId":"H-verify-login-success"},"timestamp":1774755236382}

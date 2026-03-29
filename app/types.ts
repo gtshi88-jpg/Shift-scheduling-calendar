@@ -24,12 +24,57 @@ export type ShiftType = {
   color: string;
 };
 
+/** DB staff_job_types と対応（一覧は API から取得） */
+export type StaffJobTypeRecord = {
+  id: string;
+  code: string;
+  label: string;
+  sortOrder: number;
+};
+
+/** 表示フィルタ: 全員 or 職種マスタの id */
+export type StaffJobFilter = "all" | string;
+
+/** オフライン用シード・フォールバック（schema.sql の counselor 行と一致） */
+export const FALLBACK_STAFF_JOB_TYPE_ID = "00000001-0000-4000-8000-000000000001";
+
+export function defaultStaffJobTypesSeed(): StaffJobTypeRecord[] {
+  return [
+    {
+      id: FALLBACK_STAFF_JOB_TYPE_ID,
+      code: "counselor",
+      label: "カウンセラー",
+      sortOrder: 0,
+    },
+    {
+      id: "00000002-0000-4000-8000-000000000002",
+      code: "doctor",
+      label: "ドクター",
+      sortOrder: 1,
+    },
+    {
+      id: "00000003-0000-4000-8000-000000000003",
+      code: "nurse",
+      label: "ナース",
+      sortOrder: 2,
+    },
+  ];
+}
+
 export type StaffMember = {
   id: string;
   name: string;
+  jobTypeId: string;
   activeFrom?: string | null;
   activeTo?: string | null;
 };
+
+export function normalizeStaffJobTypeId(value: unknown, fallbackId: string): string {
+  if (typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)) {
+    return value;
+  }
+  return fallbackId;
+}
 
 export type ShiftAssignmentMap = Record<string, Record<string, ShiftCode>>;
 
@@ -41,4 +86,18 @@ export type DayInfo = {
   weekday: string;
   inMonth: boolean;
   isWeekend: boolean;
+};
+
+export type ConfirmedMonthInfo = {
+  yearMonth: string;
+  confirmedAt: string;
+  confirmedBy: string;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  createdAt: string;
+  actorUsername: string;
+  action: string;
+  detail: Record<string, unknown>;
 };

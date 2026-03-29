@@ -25,19 +25,36 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
     getShiftType,
     user,
     inputMode,
-    isAdmin,
     openCalendarEditor,
     setSelectedDateDetail,
+    calendarEditingLocked,
+    onPrint,
+    readOnly = false,
   } = props;
+
+  const canEditCalendar = Boolean(
+    user && inputMode === "calendar" && !calendarEditingLocked && !readOnly,
+  );
 
   return (
     <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">カレンダープレビュー</h2>
-          <p className="text-sm text-slate-500">Googleカレンダー風のレイアウトで表示</p>
+          <p className="text-sm text-slate-500">
+            {readOnly
+              ? "表示は閲覧のみです"
+              : "Googleカレンダー風のレイアウトで表示"}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onPrint}
+            className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 print:hidden"
+          >
+            印刷 / PDF
+          </button>
           <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">
             並び順
             <select
@@ -140,12 +157,12 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                             type="button"
                             key={`${cell.key}-${event.member.id}`}
                             className={`w-full truncate rounded px-1 py-0.5 text-left text-[10px] ${
-                              user && inputMode === "calendar" ? "cursor-pointer hover:brightness-95" : ""
+                              canEditCalendar ? "cursor-pointer hover:brightness-95" : ""
                             }`}
                             style={{ backgroundColor: event.shiftType.color }}
                             title={`${event.member.name} ${event.shiftType.label}`}
                             onClick={() => {
-                              if (user && inputMode === "calendar") {
+                              if (canEditCalendar) {
                                 openCalendarEditor(cell.key, event.member.id);
                               }
                             }}
@@ -158,10 +175,10 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                     );
                   })()}
                 </div>
-                {user && inputMode === "calendar" && (
+                {canEditCalendar && (
                   <button
                     type="button"
-                    className="mt-1 w-full rounded border border-dashed border-slate-300 px-1 py-0.5 text-[10px] text-slate-500"
+                    className="mt-1 min-h-11 w-full rounded border border-dashed border-slate-300 px-1 py-1.5 text-[10px] text-slate-500"
                     onClick={() => openCalendarEditor(cell.key)}
                   >
                     + 編集
@@ -216,12 +233,12 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                         type="button"
                         key={`${cell.key}-${member.id}`}
                         className={`truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm ${
-                          isAdmin && inputMode === "calendar" ? "cursor-pointer hover:brightness-95" : ""
+                          canEditCalendar ? "cursor-pointer hover:brightness-95" : ""
                         }`}
                         style={{ backgroundColor: shiftType.color }}
                         title={`${member.name} ${shiftType.label}`}
                         onClick={() => {
-                          if (user && inputMode === "calendar") {
+                          if (canEditCalendar) {
                             openCalendarEditor(cell.key, member.id);
                           }
                         }}
@@ -231,10 +248,10 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                     );
                   })}
                 </div>
-                {user && inputMode === "calendar" && (
+                {canEditCalendar && (
                   <button
                     type="button"
-                    className="mt-2 w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
+                    className="mt-2 min-h-11 w-full rounded-md border border-dashed border-slate-300 px-2 py-2 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
                     onClick={() => openCalendarEditor(cell.key)}
                   >
                     + 追加 / 編集

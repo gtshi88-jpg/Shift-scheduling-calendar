@@ -1,5 +1,6 @@
 "use client";
 
+import type { StaffJobTypeRecord } from "@/app/types";
 import type { AddStaffModalProps } from "@/app/components/home/modals/types";
 
 export function AddStaffModal({
@@ -7,6 +8,10 @@ export function AddStaffModal({
   setVisible,
   newStaffName,
   setNewStaffName,
+  newStaffJobTypeId,
+  setNewStaffJobTypeId,
+  counselorJobTypeId,
+  jobTypes,
   submitAddStaff,
 }: AddStaffModalProps) {
   if (!visible) {
@@ -28,6 +33,20 @@ export function AddStaffModal({
             autoFocus
           />
         </label>
+        <label className="mt-3 block text-sm text-slate-700">
+          職種
+          <select
+            value={newStaffJobTypeId}
+            onChange={(event) => setNewStaffJobTypeId(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none ring-indigo-100 focus:ring"
+          >
+            {jobTypes.map((job: StaffJobTypeRecord) => (
+              <option key={job.id} value={job.id}>
+                {job.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"
@@ -35,6 +54,7 @@ export function AddStaffModal({
             onClick={() => {
               setVisible(false);
               setNewStaffName("");
+              setNewStaffJobTypeId(counselorJobTypeId);
             }}
           >
             キャンセル

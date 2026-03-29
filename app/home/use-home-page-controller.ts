@@ -3,16 +3,33 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { parseFetchJsonBody } from "@/lib/parse-json-response";
 import type {
+  AuditLogEntry,
   AuthUser,
+  ConfirmedMonthInfo,
   ShiftAssignmentMap,
   ShiftCode,
   ShiftType,
+  StaffJobFilter,
+  StaffJobTypeRecord,
   StaffMember,
   ViewMode,
 } from "@/app/types";
-import { buildMonthCells, createInitialData, createMonthDays, createWeekDays } from "@/app/utils/schedule";
+import {
+  defaultStaffJobTypesSeed,
+  FALLBACK_STAFF_JOB_TYPE_ID,
+  normalizeStaffJobTypeId,
+} from "@/app/types";
+import {
+  buildMonthCells,
+  createInitialData,
+  createMonthDays,
+  createWeekDays,
+  getMonthLabel,
+} from "@/app/utils/schedule";
 
 type InputMode = "table" | "calendar";
 type TableRangeMode = "all" | "firstHalf" | "secondHalf";
@@ -120,7 +137,10 @@ function normalizeShiftToken(token: string): ShiftCode | null {
   return map[normalized] ?? null;
 }
 
-function parseShiftCsv(text: string): { preview: CsvImportPreview | null; errors: string[] } {
+function parseShiftCsv(
+  text: string,
+  defaultJobTypeId: string,
+): { preview: CsvImportPreview | null; errors: string[] } {
   const errors: string[] = [];
   const lines = text
     .split(/\r?\n/)
@@ -157,7 +177,13 @@ function parseShiftCsv(text: string): { preview: CsvImportPreview | null; errors
       continue;
     }
     const memberId = crypto.randomUUID();
-    staff.push({ id: memberId, name, activeFrom: defaultActiveFrom, activeTo: null });
+    staff.push({
+      id: memberId,
+      name,
+      jobTypeId: defaultJobTypeId,
+      activeFrom: defaultActiveFrom,
+      activeTo: null,
+    });
     for (let col = 0; col < dateColumns.length; col += 1) {
       const dateKey = dateColumns[col];
       const token = row[col + 1] ?? "";
@@ -173,6 +199,17 @@ function parseShiftCsv(text: string): { preview: CsvImportPreview | null; errors
     return { preview: null, errors };
   }
   return { preview: { staff, assignments, parsedDates: dateColumns }, errors: [] };
+}
+
+function normalizeStaffMember(raw: unknown): StaffMember {
+  const r = raw as Partial<StaffMember> & { id: string; name: string };
+  return {
+    id: r.id,
+    name: r.name,
+    jobTypeId: normalizeStaffJobTypeId(r.jobTypeId, FALLBACK_STAFF_JOB_TYPE_ID),
+    activeFrom: r.activeFrom ?? null,
+    activeTo: r.activeTo ?? null,
+  };
 }
 
 function normalizeShiftCode(code: unknown): ShiftCode {
@@ -243,6 +280,51 @@ function isStaffActiveOnDate(member: StaffMember, dateKey: string): boolean {
   return isStaffActiveForRange(member, dateKey, dateKey);
 }
 
+function emptyShiftTotals(): Record<ShiftCode, number> {
+  return {
+    WORK: 0,
+    ABSENT: 0,
+    PAID_LEAVE: 0,
+    REQUEST_OFF: 0,
+    REGULAR_OFF: 0,
+    A_SHIFT: 0,
+    P_SHIFT: 0,
+  };
+}
+
+function computeMonthlyTotalsForMonthPrefix(
+  assignments: ShiftAssignmentMap,
+  staffById: Map<string, StaffMember>,
+  monthPrefix: string,
+): Record<ShiftCode, number> {
+  const totals = emptyShiftTotals();
+  for (const [dateKey, byStaff] of Object.entries(assignments)) {
+    if (!dateKey.startsWith(monthPrefix)) continue;
+    for (const [staffId, code] of Object.entries(byStaff)) {
+      const member = staffById.get(staffId);
+      if (!member || !isStaffActiveOnDate(member, dateKey)) continue;
+      if (code in totals) totals[code as ShiftCode] += 1;
+    }
+  }
+  return totals;
+}
+
+function toConfirmedMap(rows: ConfirmedMonthInfo[]): Record<string, ConfirmedMonthInfo> {
+  const result: Record<string, ConfirmedMonthInfo> = {};
+  for (const row of rows) {
+    result[row.yearMonth] = row;
+  }
+  return result;
+}
+
+type ShiftApiPayload = {
+  staff: StaffMember[];
+  assignments: ShiftAssignmentMap;
+  jobTypes?: StaffJobTypeRecord[];
+  confirmedMonths?: ConfirmedMonthInfo[];
+  auditLog?: AuditLogEntry[];
+};
+
 export function useHomePageController() {
   const fallback = createInitialData(new Date(2026, 2, 1));
   const [currentMonth, setCurrentMonth] = useState(() => new Date(2026, 2, 1));
@@ -256,7 +338,9 @@ export function useHomePageController() {
   const [showRegularOffInMonth, setShowRegularOffInMonth] = useState(false);
   const [previewSortMode, setPreviewSortMode] = useState<PreviewSortMode>("presentFirst");
   const [weekFocusDate, setWeekFocusDate] = useState("2026-03-01");
-  const [staff, setStaff] = useState<StaffMember[]>(fallback.staff);
+  const [staff, setStaff] = useState<StaffMember[]>(() => fallback.staff.map(normalizeStaffMember));
+  const [jobTypes, setJobTypes] = useState<StaffJobTypeRecord[]>(() => defaultStaffJobTypesSeed());
+  const [staffJobFilter, setStaffJobFilter] = useState<StaffJobFilter>("all");
   const [assignments, setAssignments] = useState<ShiftAssignmentMap>(fallback.assignments);
   const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -270,6 +354,7 @@ export function useHomePageController() {
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
   const [addStaffModalOpen, setAddStaffModalOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
+  const [newStaffJobTypeId, setNewStaffJobTypeId] = useState(FALLBACK_STAFF_JOB_TYPE_ID);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [csvImportErrors, setCsvImportErrors] = useState<string[]>([]);
   const [csvImportPreview, setCsvImportPreview] = useState<CsvImportPreview | null>(null);
@@ -278,6 +363,22 @@ export function useHomePageController() {
     staffId: string;
     code: ShiftCode;
   } | null>(null);
+  const [confirmedMonths, setConfirmedMonths] = useState<Record<string, ConfirmedMonthInfo>>({});
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [scheduleNotice, setScheduleNotice] = useState("");
+
+  const refreshFromServer = useCallback(async () => {
+    const shiftRes = await fetch("/api/shifts", { cache: "no-store" });
+    if (!shiftRes.ok) {
+      return;
+    }
+    const shiftPayload = (await shiftRes.json()) as ShiftApiPayload;
+    setStaff(shiftPayload.staff.map(normalizeStaffMember));
+    setAssignments(normalizeAssignments(shiftPayload.assignments));
+    setJobTypes(shiftPayload.jobTypes?.length ? shiftPayload.jobTypes : defaultStaffJobTypesSeed());
+    setConfirmedMonths(toConfirmedMap(shiftPayload.confirmedMonths ?? []));
+    setAuditLog(shiftPayload.auditLog ?? []);
+  }, []);
 
   useEffect(() => {
     async function bootstrap() {
@@ -289,12 +390,12 @@ export function useHomePageController() {
         setUser(authPayload.user);
         const shiftRes = await fetch("/api/shifts", { cache: "no-store" });
         if (!shiftRes.ok) return;
-        const shiftPayload = (await shiftRes.json()) as {
-          staff: StaffMember[];
-          assignments: ShiftAssignmentMap;
-        };
-        setStaff(shiftPayload.staff);
+        const shiftPayload = (await shiftRes.json()) as ShiftApiPayload;
+        setStaff(shiftPayload.staff.map(normalizeStaffMember));
         setAssignments(normalizeAssignments(shiftPayload.assignments));
+        setJobTypes(shiftPayload.jobTypes?.length ? shiftPayload.jobTypes : defaultStaffJobTypesSeed());
+        setConfirmedMonths(toConfirmedMap(shiftPayload.confirmedMonths ?? []));
+        setAuditLog(shiftPayload.auditLog ?? []);
       } finally {
         setAuthLoading(false);
       }
@@ -303,7 +404,9 @@ export function useHomePageController() {
   }, []);
 
   const persistData = async (nextStaff: StaffMember[], nextAssignments: ShiftAssignmentMap) => {
-    if (!user || user.role !== "admin") return false;
+    if (!user) {
+      return false;
+    }
     setSaveStatus("saving");
     const response = await fetch("/api/shifts", {
       method: "PUT",
@@ -312,9 +415,15 @@ export function useHomePageController() {
     });
     if (!response.ok) {
       setSaveStatus("error");
+      if (response.status === 403) {
+        setScheduleNotice("保存できませんでした（権限または確定済みの月の制限）。");
+      }
+      await refreshFromServer();
       return false;
     }
     setSaveStatus("idle");
+    setScheduleNotice("");
+    await refreshFromServer();
     return true;
   };
 
@@ -322,10 +431,32 @@ export function useHomePageController() {
   const currentMonthStartKey = useMemo(() => getMonthStartKey(currentMonth), [currentMonth]);
   const currentMonthEndKey = useMemo(() => getMonthEndKey(currentMonth), [currentMonth]);
   const staffById = useMemo(() => new Map(staff.map((member) => [member.id, member])), [staff]);
+  const counselorJobTypeId = useMemo(
+    () => jobTypes.find((j) => j.code === "counselor")?.id ?? FALLBACK_STAFF_JOB_TYPE_ID,
+    [jobTypes],
+  );
+  const staffJobFilterOptions = useMemo(
+    () => [{ value: "all" as const, label: "全職種" }, ...jobTypes.map((j) => ({ value: j.id, label: j.label }))],
+    [jobTypes],
+  );
+  useEffect(() => {
+    if (staffJobFilter === "all") {
+      return;
+    }
+    if (!jobTypes.some((j) => j.id === staffJobFilter)) {
+      setStaffJobFilter("all");
+    }
+  }, [jobTypes, staffJobFilter]);
   const monthVisibleStaff = useMemo(
     () => staff.filter((member) => isStaffActiveForRange(member, currentMonthStartKey, currentMonthEndKey)),
     [currentMonthEndKey, currentMonthStartKey, staff],
   );
+  const jobFilteredMonthStaff = useMemo(() => {
+    if (staffJobFilter === "all") {
+      return monthVisibleStaff;
+    }
+    return monthVisibleStaff.filter((member) => member.jobTypeId === staffJobFilter);
+  }, [monthVisibleStaff, staffJobFilter]);
   const visibleMonthDays = useMemo(() => {
     if (tableRangeMode === "all") return monthDays;
     if (tableRangeMode === "firstHalf") return monthDays.filter((day) => day.day <= 16);
@@ -356,33 +487,45 @@ export function useHomePageController() {
     }
     return messages;
   }, [staff, assignments]);
-  const monthlyTotals = useMemo(() => {
-    const totals: Record<ShiftCode, number> = {
-      WORK: 0,
-      ABSENT: 0,
-      PAID_LEAVE: 0,
-      REQUEST_OFF: 0,
-      REGULAR_OFF: 0,
-      A_SHIFT: 0,
-      P_SHIFT: 0,
+  const currentMonthPrefix = useMemo(
+    () => `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`,
+    [currentMonth],
+  );
+  const monthlyTotals = useMemo(
+    () => computeMonthlyTotalsForMonthPrefix(assignments, staffById, currentMonthPrefix),
+    [assignments, staffById, currentMonthPrefix],
+  );
+  const prevMonthPrefix = useMemo(() => {
+    const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, [currentMonth]);
+  const prevYearSameMonthPrefix = useMemo(() => {
+    const d = new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, [currentMonth]);
+  const monthlyTotalsPrevMonth = useMemo(
+    () => computeMonthlyTotalsForMonthPrefix(assignments, staffById, prevMonthPrefix),
+    [assignments, staffById, prevMonthPrefix],
+  );
+  const monthlyTotalsPrevYearSameMonth = useMemo(
+    () => computeMonthlyTotalsForMonthPrefix(assignments, staffById, prevYearSameMonthPrefix),
+    [assignments, staffById, prevYearSameMonthPrefix],
+  );
+  const monthComparisonLabels = useMemo(() => {
+    const prevM = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    const prevY = new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1);
+    return {
+      prevMonth: getMonthLabel(prevM),
+      prevYearSameMonth: getMonthLabel(prevY),
     };
-    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
-    for (const [dateKey, byStaff] of Object.entries(assignments)) {
-      if (!dateKey.startsWith(monthKey)) continue;
-      for (const [staffId, code] of Object.entries(byStaff)) {
-        const member = staffById.get(staffId);
-        if (!member || !isStaffActiveOnDate(member, dateKey)) continue;
-        if (code in totals) totals[code as ShiftCode] += 1;
-      }
-    }
-    return totals;
-  }, [assignments, currentMonth, staffById]);
+  }, [currentMonth]);
+  const currentMonthLabel = useMemo(() => getMonthLabel(currentMonth), [currentMonth]);
   const totalsByStaff = useMemo(() => {
     const result: Record<string, { work: number; absent: number; paidLeave: number; requestOff: number }> = {};
-    for (const member of monthVisibleStaff) result[member.id] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0 };
+    for (const member of jobFilteredMonthStaff) result[member.id] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0 };
     for (const day of monthDays) {
       const byStaff = assignments[day.key] ?? {};
-      for (const member of monthVisibleStaff) {
+      for (const member of jobFilteredMonthStaff) {
         const code = byStaff[member.id] ?? "REGULAR_OFF";
         if (code === "WORK") result[member.id].work += 1;
         if (code === "ABSENT") result[member.id].absent += 1;
@@ -391,13 +534,16 @@ export function useHomePageController() {
       }
     }
     return result;
-  }, [assignments, monthDays, monthVisibleStaff]);
+  }, [assignments, monthDays, jobFilteredMonthStaff]);
   const totalsByDate = useMemo(() => {
     const result: Record<string, { work: number; absent: number; paidLeave: number; requestOff: number }> = {};
     for (const day of monthDays) {
       result[day.key] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0 };
       const byStaff = assignments[day.key] ?? {};
-      const dateStaff = staff.filter((member) => isStaffActiveOnDate(member, day.key));
+      let dateStaff = staff.filter((member) => isStaffActiveOnDate(member, day.key));
+      if (staffJobFilter !== "all") {
+        dateStaff = dateStaff.filter((member) => member.jobTypeId === staffJobFilter);
+      }
       for (const member of dateStaff) {
         const code = byStaff[member.id] ?? "REGULAR_OFF";
         if (code === "WORK") result[day.key].work += 1;
@@ -407,13 +553,16 @@ export function useHomePageController() {
       }
     }
     return result;
-  }, [assignments, monthDays, staff]);
+  }, [assignments, monthDays, staff, staffJobFilter]);
   const workingCountByDate = useMemo(() => {
     const result: Record<string, number> = {};
     for (const day of monthDays) {
       let count = 0;
       const byStaff = assignments[day.key] ?? {};
-      const dateStaff = staff.filter((member) => isStaffActiveOnDate(member, day.key));
+      let dateStaff = staff.filter((member) => isStaffActiveOnDate(member, day.key));
+      if (staffJobFilter !== "all") {
+        dateStaff = dateStaff.filter((member) => member.jobTypeId === staffJobFilter);
+      }
       for (const member of dateStaff) {
         const code = byStaff[member.id] ?? "REGULAR_OFF";
         if (code === "WORK" || code === "A_SHIFT" || code === "P_SHIFT") count += 1;
@@ -421,7 +570,7 @@ export function useHomePageController() {
       result[day.key] = count;
     }
     return result;
-  }, [assignments, monthDays, staff]);
+  }, [assignments, monthDays, staff, staffJobFilter]);
   const targetByDate = useMemo(() => {
     const result: Record<string, number> = {};
     for (const day of monthDays) {
@@ -448,6 +597,51 @@ export function useHomePageController() {
   const isAdmin = user?.role === "admin";
   const isMember = user?.role === "member";
 
+  const currentYearMonthKey = useMemo(() => {
+    return `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+  }, [currentMonth]);
+
+  const memberMonthLocked = Boolean(isMember && confirmedMonths[currentYearMonthKey]);
+
+  const confirmCurrentMonth = async () => {
+    if (!isAdmin) {
+      return;
+    }
+    const res = await fetch("/api/shifts/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yearMonth: currentYearMonthKey }),
+    });
+    if (!res.ok) {
+      setScheduleNotice("確定の更新に失敗しました。");
+      return;
+    }
+    setScheduleNotice("");
+    await refreshFromServer();
+  };
+
+  const unconfirmCurrentMonth = async () => {
+    if (!isAdmin) {
+      return;
+    }
+    const res = await fetch(
+      `/api/shifts/confirm?yearMonth=${encodeURIComponent(currentYearMonthKey)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      setScheduleNotice("確定解除に失敗しました。");
+      return;
+    }
+    setScheduleNotice("");
+    await refreshFromServer();
+  };
+
+  const handlePrintSchedule = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
   const moveMonth = (delta: number) => {
     const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1);
     setCurrentMonth(next);
@@ -469,7 +663,10 @@ export function useHomePageController() {
     setWeekFocusDate(`${y}-${m}-${d}`);
   };
   const getPreviewStaffByDate = (dateKey: string) => {
-    const dateStaff = staff.filter((member) => isStaffActiveOnDate(member, dateKey));
+    let dateStaff = staff.filter((member) => isStaffActiveOnDate(member, dateKey));
+    if (staffJobFilter !== "all") {
+      dateStaff = dateStaff.filter((member) => member.jobTypeId === staffJobFilter);
+    }
     if (previewSortMode === "createdOrder") return dateStaff;
     if (previewSortMode === "name") return [...dateStaff].sort((a, b) => a.name.localeCompare(b.name, "ja"));
     return [...dateStaff].sort((a, b) => {
@@ -520,6 +717,11 @@ export function useHomePageController() {
   const updateAssignment = (dateKey: string, staffId: string, code: ShiftCode) => {
     if (!user) return;
     if (!isAdmin && !isMember) return;
+    const ym = dateKey.slice(0, 7);
+    if (isMember && confirmedMonths[ym]) {
+      setScheduleNotice("この月は確定済みのため、希望休・有給の変更はできません。");
+      return;
+    }
     if (isMember && !MEMBER_EDITABLE_CODES.includes(code)) return;
     const nextAssignments = { ...assignments, [dateKey]: { ...(assignments[dateKey] ?? {}), [staffId]: code } };
     setAssignments(nextAssignments);
@@ -528,6 +730,11 @@ export function useHomePageController() {
   const openCalendarEditor = (dateKey: string, preferredStaffId?: string) => {
     const dateStaff = getPreviewStaffByDate(dateKey);
     if (!user || dateStaff.length === 0) return;
+    const ym = dateKey.slice(0, 7);
+    if (isMember && confirmedMonths[ym]) {
+      setScheduleNotice("この月は確定済みのため、編集できません。");
+      return;
+    }
     const selectedStaffId =
       preferredStaffId && dateStaff.some((member) => member.id === preferredStaffId) ? preferredStaffId : dateStaff[0].id;
     const currentCode = assignments[dateKey]?.[selectedStaffId] ?? "REGULAR_OFF";
@@ -536,6 +743,12 @@ export function useHomePageController() {
   };
   const applyCalendarEditor = () => {
     if (!calendarEditor) return;
+    const ym = calendarEditor.dateKey.slice(0, 7);
+    if (isMember && confirmedMonths[ym]) {
+      setScheduleNotice("この月は確定済みのため、編集できません。");
+      setCalendarEditor(null);
+      return;
+    }
     updateAssignment(calendarEditor.dateKey, calendarEditor.staffId, calendarEditor.code);
     setCalendarEditor(null);
   };
@@ -543,7 +756,13 @@ export function useHomePageController() {
     if (!isAdmin) return;
     const name = nameInput.trim();
     if (!name) return;
-    const item: StaffMember = { id: crypto.randomUUID(), name, activeFrom: currentMonthStartKey, activeTo: null };
+    const item: StaffMember = {
+      id: crypto.randomUUID(),
+      name,
+      jobTypeId: newStaffJobTypeId,
+      activeFrom: currentMonthStartKey,
+      activeTo: null,
+    };
     const nextStaff = [...staff, item];
     const nextAssignments: ShiftAssignmentMap = {};
     for (const [dateKey, byStaff] of Object.entries(assignments)) {
@@ -556,6 +775,7 @@ export function useHomePageController() {
   const submitAddStaff = async () => {
     await addStaff(newStaffName);
     setNewStaffName("");
+    setNewStaffJobTypeId(counselorJobTypeId);
     setAddStaffModalOpen(false);
   };
   const removeStaff = async (staffId: string) => {
@@ -566,7 +786,7 @@ export function useHomePageController() {
   };
   const moveStaff = async (staffId: string, direction: -1 | 1) => {
     if (!isAdmin) return;
-    const visibleIds = monthVisibleStaff.map((member) => member.id);
+    const visibleIds = jobFilteredMonthStaff.map((member) => member.id);
     const fromVisibleIndex = visibleIds.indexOf(staffId);
     const toVisibleIndex = fromVisibleIndex + direction;
     if (fromVisibleIndex < 0 || toVisibleIndex < 0 || toVisibleIndex >= visibleIds.length) return;
@@ -588,21 +808,42 @@ export function useHomePageController() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: loginUsername, password: loginPassword }),
     });
+    const rawText = await response.text();
+    const parsed = parseFetchJsonBody<{ ok?: boolean; message?: string; user?: AuthUser }>(rawText);
+    const loginPayload =
+      parsed.ok
+        ? parsed.data
+        : {
+            message:
+              parsed.reason === "html"
+                ? "サーバーが JSON ではなく HTML を返しました。API ルートのエラーやミドルウェアのログを確認してください。"
+                : "サーバー応答の解析に失敗しました。",
+          };
     if (!response.ok) {
-      setLoginError("ログイン情報が正しくありません");
+      setLoginError(
+        typeof loginPayload.message === "string" && loginPayload.message
+          ? loginPayload.message
+          : "メールアドレスまたはパスワードが正しくありません",
+      );
       return;
     }
-    const authPayload = (await response.json()) as { user: AuthUser };
-    setUser(authPayload.user);
+    if (!loginPayload.user) {
+      setLoginError("ログイン応答にユーザー情報がありません");
+      return;
+    }
+    setUser(loginPayload.user);
     setLoginPassword("");
     const shiftRes = await fetch("/api/shifts", { cache: "no-store" });
     if (!shiftRes.ok) {
       setLoginError("シフト情報の取得に失敗しました");
       return;
     }
-    const shiftPayload = (await shiftRes.json()) as { staff: StaffMember[]; assignments: ShiftAssignmentMap };
-    setStaff(shiftPayload.staff);
+    const shiftPayload = (await shiftRes.json()) as ShiftApiPayload;
+    setStaff(shiftPayload.staff.map(normalizeStaffMember));
     setAssignments(normalizeAssignments(shiftPayload.assignments));
+    setJobTypes(shiftPayload.jobTypes?.length ? shiftPayload.jobTypes : defaultStaffJobTypesSeed());
+    setConfirmedMonths(toConfirmedMap(shiftPayload.confirmedMonths ?? []));
+    setAuditLog(shiftPayload.auditLog ?? []);
   };
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -611,20 +852,24 @@ export function useHomePageController() {
     setLoginPassword("");
     setLoginError("");
     const reset = createInitialData(new Date(2026, 2, 1));
-    setStaff(reset.staff);
+    setStaff(reset.staff.map(normalizeStaffMember));
     setAssignments(reset.assignments);
+    setJobTypes(defaultStaffJobTypesSeed());
+    setConfirmedMonths({});
+    setAuditLog([]);
+    setScheduleNotice("");
   };
   const handleCsvFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    const parsed = parseShiftCsv(text);
+    const parsed = parseShiftCsv(text, counselorJobTypeId);
     setCsvImportErrors(parsed.errors);
     setCsvImportPreview(parsed.preview);
   };
   const applyCsvImport = async () => {
     if (!csvImportPreview) return;
-    setStaff(csvImportPreview.staff);
+    setStaff(csvImportPreview.staff.map(normalizeStaffMember));
     setAssignments(csvImportPreview.assignments);
     const firstDate = csvImportPreview.parsedDates[0];
     if (firstDate) {
@@ -635,6 +880,51 @@ export function useHomePageController() {
     setCsvImportOpen(false);
     setCsvImportErrors([]);
     setCsvImportPreview(null);
+  };
+
+  const createStaffJobTypeRemote = async (label: string) => {
+    if (!isAdmin || !label.trim()) {
+      return false;
+    }
+    const res = await fetch("/api/staff-job-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: label.trim() }),
+    });
+    if (!res.ok) {
+      return false;
+    }
+    await refreshFromServer();
+    return true;
+  };
+
+  const deleteStaffJobTypeRemote = async (id: string) => {
+    if (!isAdmin) {
+      return { ok: false as const, message: "権限がありません" };
+    }
+    const res = await fetch(`/api/staff-job-types?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const payload = (await res.json().catch(() => ({}))) as { message?: string };
+    if (!res.ok) {
+      return { ok: false as const, message: payload.message ?? "削除に失敗しました" };
+    }
+    await refreshFromServer();
+    return { ok: true as const };
+  };
+
+  const updateStaffJobTypeLabelRemote = async (id: string, label: string) => {
+    if (!isAdmin || !label.trim()) {
+      return false;
+    }
+    const res = await fetch("/api/staff-job-types", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, label: label.trim() }),
+    });
+    if (!res.ok) {
+      return false;
+    }
+    await refreshFromServer();
+    return true;
   };
 
   return {
@@ -652,6 +942,10 @@ export function useHomePageController() {
     mobileTodayPresent,
     mobileTodayAbsent,
     monthlyTotals,
+    monthlyTotalsPrevMonth,
+    monthlyTotalsPrevYearSameMonth,
+    monthComparisonLabels,
+    currentMonthLabel,
     showMonthlySummaryMobile,
     tableRangeMode,
     targetWeekday,
@@ -660,7 +954,11 @@ export function useHomePageController() {
     showTableOptions,
     holidayDatesInput,
     visibleMonthDays,
-    monthVisibleStaff,
+    staffJobFilter,
+    setStaffJobFilter,
+    staffJobFilterOptions,
+    jobTypes,
+    monthVisibleStaff: jobFilteredMonthStaff,
     assignments,
     totalsByStaff,
     totalsByDate,
@@ -680,6 +978,12 @@ export function useHomePageController() {
     csvImportPreview,
     addStaffModalOpen,
     newStaffName,
+    newStaffJobTypeId,
+    setNewStaffJobTypeId,
+    counselorJobTypeId,
+    createStaffJobTypeRemote,
+    deleteStaffJobTypeRemote,
+    updateStaffJobTypeLabelRemote,
     miniCalendarCells,
     setLoginUsername,
     loginUsername,
@@ -724,5 +1028,15 @@ export function useHomePageController() {
     applyCsvImport,
     setNewStaffName,
     submitAddStaff,
+    currentYearMonthKey,
+    confirmedMonths,
+    memberMonthLocked,
+    auditLog,
+    scheduleNotice,
+    setScheduleNotice,
+    confirmCurrentMonth,
+    unconfirmCurrentMonth,
+    handlePrintSchedule,
+    monthDays,
   };
 }

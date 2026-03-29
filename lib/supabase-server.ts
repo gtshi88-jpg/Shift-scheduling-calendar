@@ -1,3 +1,7 @@
+
+// このファイルはSupabaseのサーバーサイドクライアントを作成するためのファイルです
+// Supabaseはデータベースを管理するためのツールです
+// このファイルはSupabaseのサーバーサイドクライアントを作成するためのファイルです
 import { createClient } from "@supabase/supabase-js";
 
 function requiredEnv(name: string): string {

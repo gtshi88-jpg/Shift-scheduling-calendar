@@ -3,6 +3,7 @@
 // このファイルはシフト管理のデータを読み書きするためのファイルです 
 
 import type { DayInfo, ShiftAssignmentMap, StaffMember } from "@/app/types";
+import { FALLBACK_STAFF_JOB_TYPE_ID } from "@/app/types";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
@@ -117,6 +118,7 @@ export function createInitialData(monthDate: Date): {
   const staff = SEED_STAFF.map((name, index) => ({
     id: `seed-${index + 1}`,
     name,
+    jobTypeId: FALLBACK_STAFF_JOB_TYPE_ID,
   }));
 
   const assignments: ShiftAssignmentMap = {};

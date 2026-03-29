@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import type { ShiftCode, ShiftType, StaffMember } from "@/app/types";
+import type { ShiftCode, ShiftType, StaffJobTypeRecord, StaffMember } from "@/app/types";
 
 export type CsvImportPreview = {
   staff: StaffMember[];
@@ -53,5 +53,9 @@ export type AddStaffModalProps = {
   setVisible: Dispatch<SetStateAction<boolean>>;
   newStaffName: string;
   setNewStaffName: Dispatch<SetStateAction<string>>;
+  newStaffJobTypeId: string;
+  setNewStaffJobTypeId: Dispatch<SetStateAction<string>>;
+  counselorJobTypeId: string;
+  jobTypes: StaffJobTypeRecord[];
   submitAddStaff: () => Promise<void>;
 };

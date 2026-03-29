@@ -21,9 +21,10 @@ export function LoginView({
           </p>
           <form onSubmit={handleLogin} className="mt-4 flex flex-col gap-3">
             <label className="text-sm">
-              ユーザー名
+              メールアドレス
               <input
-                type="text"
+                type="email"
+                autoComplete="email"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none ring-indigo-100 transition focus:ring"
                 value={loginUsername}
                 onChange={(event) => setLoginUsername(event.target.value)}

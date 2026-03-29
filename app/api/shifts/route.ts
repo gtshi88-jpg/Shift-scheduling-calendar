@@ -1,33 +1,39 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { ShiftAssignmentMap, StaffMember } from "@/app/types";
-import { getSessionCookieName, parseSessionToken } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
+import {
+  appendAuditLog,
+  memberTouchesConfirmedMonth,
+  readAuditLog,
+  readConfirmedMonths,
+  staffFingerprint,
+  summarizeAssignmentDiff,
+} from "@/lib/schedule-meta";
 import { readShiftStore, writeShiftStore } from "@/lib/shift-store";
 
 const MEMBER_EDITABLE_CODES = new Set(["PAID_LEAVE", "REQUEST_OFF"]);
 
-async function getUserFromCookie() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(getSessionCookieName())?.value;
-  return parseSessionToken(token);
-}
-
 export async function GET() {
-  const user = await getUserFromCookie();
+  const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ message: "unauthorized" }, { status: 401 });
   }
 
   try {
     const store = await readShiftStore();
-    return NextResponse.json(store);
+    const [confirmedMonths, auditLog] = await Promise.all([readConfirmedMonths(), readAuditLog(80)]);
+    return NextResponse.json({
+      ...store,
+      confirmedMonths,
+      auditLog,
+    });
   } catch {
     return NextResponse.json({ message: "failed to load shifts" }, { status: 500 });
   }
 }
 
 export async function PUT(req: Request) {
-  const user = await getUserFromCookie();
+  const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ message: "unauthorized" }, { status: 401 });
   }
@@ -40,26 +46,26 @@ export async function PUT(req: Request) {
   }
 
   try {
+    const current = await readShiftStore();
+    const confirmedRows = await readConfirmedMonths();
+    const confirmedYearMonths = new Set(confirmedRows.map((row) => row.yearMonth));
+
     if (user.role === "member") {
-      const current = await readShiftStore();
-      const currentStaffFingerprint = JSON.stringify(
-        current.staff.map((member) => ({
-          id: member.id,
-          name: member.name,
-          activeFrom: member.activeFrom ?? null,
-          activeTo: member.activeTo ?? null,
-        })),
-      );
-      const nextStaffFingerprint = JSON.stringify(
-        body.staff.map((member) => ({
-          id: member.id,
-          name: member.name,
-          activeFrom: member.activeFrom ?? null,
-          activeTo: member.activeTo ?? null,
-        })),
-      );
-      if (currentStaffFingerprint !== nextStaffFingerprint) {
+      if (staffFingerprint(current.staff) !== staffFingerprint(body.staff)) {
         return NextResponse.json({ message: "staff update forbidden for member" }, { status: 403 });
+      }
+
+      if (
+        memberTouchesConfirmedMonth({
+          prev: current.assignments,
+          next: body.assignments,
+          confirmedYearMonths,
+        })
+      ) {
+        return NextResponse.json(
+          { message: "confirmed month cannot be edited by member" },
+          { status: 403 },
+        );
       }
 
       const allDateKeys = new Set([
@@ -95,6 +101,19 @@ export async function PUT(req: Request) {
       staff: body.staff,
       assignments: body.assignments,
     });
+
+    const diff = summarizeAssignmentDiff(current.assignments, body.assignments);
+    const staffChanged = staffFingerprint(current.staff) !== staffFingerprint(body.staff);
+    try {
+      await appendAuditLog(user.username, "save", {
+        changedCells: diff.changedCells,
+        staffChanged,
+        monthsTouched: diff.monthsTouched,
+      });
+    } catch {
+      // 保存は完了済み。履歴テーブル未作成時などは続行する。
+    }
+
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ message: "failed to save shifts" }, { status: 500 });

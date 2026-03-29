@@ -347,6 +347,8 @@ export function useHomePageController() {
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  /** ログイン POST 〜 シフト取得完了まで true（成功時はメイン画面へ移る前の待機表示用） */
+  const [loginBusy, setLoginBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [showMonthlySummaryMobile, setShowMonthlySummaryMobile] = useState(false);
@@ -803,47 +805,52 @@ export function useHomePageController() {
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoginError("");
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: loginUsername, password: loginPassword }),
-    });
-    const rawText = await response.text();
-    const parsed = parseFetchJsonBody<{ ok?: boolean; message?: string; user?: AuthUser }>(rawText);
-    const loginPayload =
-      parsed.ok
-        ? parsed.data
-        : {
-            message:
-              parsed.reason === "html"
-                ? "サーバーが JSON ではなく HTML を返しました。API ルートのエラーやミドルウェアのログを確認してください。"
-                : "サーバー応答の解析に失敗しました。",
-          };
-    if (!response.ok) {
-      setLoginError(
-        typeof loginPayload.message === "string" && loginPayload.message
-          ? loginPayload.message
-          : "メールアドレスまたはパスワードが正しくありません",
-      );
-      return;
+    setLoginBusy(true);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
+      });
+      const rawText = await response.text();
+      const parsed = parseFetchJsonBody<{ ok?: boolean; message?: string; user?: AuthUser }>(rawText);
+      const loginPayload =
+        parsed.ok
+          ? parsed.data
+          : {
+              message:
+                parsed.reason === "html"
+                  ? "サーバーが JSON ではなく HTML を返しました。API ルートのエラーやミドルウェアのログを確認してください。"
+                  : "サーバー応答の解析に失敗しました。",
+            };
+      if (!response.ok) {
+        setLoginError(
+          typeof loginPayload.message === "string" && loginPayload.message
+            ? loginPayload.message
+            : "メールアドレスまたはパスワードが正しくありません",
+        );
+        return;
+      }
+      if (!loginPayload.user) {
+        setLoginError("ログイン応答にユーザー情報がありません");
+        return;
+      }
+      setLoginPassword("");
+      const shiftRes = await fetch("/api/shifts", { cache: "no-store" });
+      if (!shiftRes.ok) {
+        setLoginError("シフト情報の取得に失敗しました");
+        return;
+      }
+      const shiftPayload = (await shiftRes.json()) as ShiftApiPayload;
+      setUser(loginPayload.user);
+      setStaff(shiftPayload.staff.map(normalizeStaffMember));
+      setAssignments(normalizeAssignments(shiftPayload.assignments));
+      setJobTypes(shiftPayload.jobTypes?.length ? shiftPayload.jobTypes : defaultStaffJobTypesSeed());
+      setConfirmedMonths(toConfirmedMap(shiftPayload.confirmedMonths ?? []));
+      setAuditLog(shiftPayload.auditLog ?? []);
+    } finally {
+      setLoginBusy(false);
     }
-    if (!loginPayload.user) {
-      setLoginError("ログイン応答にユーザー情報がありません");
-      return;
-    }
-    setUser(loginPayload.user);
-    setLoginPassword("");
-    const shiftRes = await fetch("/api/shifts", { cache: "no-store" });
-    if (!shiftRes.ok) {
-      setLoginError("シフト情報の取得に失敗しました");
-      return;
-    }
-    const shiftPayload = (await shiftRes.json()) as ShiftApiPayload;
-    setStaff(shiftPayload.staff.map(normalizeStaffMember));
-    setAssignments(normalizeAssignments(shiftPayload.assignments));
-    setJobTypes(shiftPayload.jobTypes?.length ? shiftPayload.jobTypes : defaultStaffJobTypesSeed());
-    setConfirmedMonths(toConfirmedMap(shiftPayload.confirmedMonths ?? []));
-    setAuditLog(shiftPayload.auditLog ?? []);
   };
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -990,6 +997,7 @@ export function useHomePageController() {
     setLoginPassword,
     loginPassword,
     loginError,
+    loginBusy,
     handleLogin,
     handleLogout,
     setMonthPickerOpen,

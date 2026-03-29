@@ -39,6 +39,8 @@ export type LoginViewProps = {
   loginPassword: string;
   setLoginPassword: (value: string) => void;
   loginError: string;
+  /** 認証 API 〜 シフト取得中 */
+  loginBusy: boolean;
 };
 
 export type HeaderSectionProps = {

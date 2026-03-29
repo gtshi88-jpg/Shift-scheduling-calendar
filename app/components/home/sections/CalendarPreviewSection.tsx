@@ -121,69 +121,96 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
             {monthCells.map((cell) => (
               <div
                 key={cell.key}
-                className={`min-h-28 rounded-xl border p-2 transition ${
+                className={`relative min-h-28 touch-manipulation rounded-xl border p-2 transition ${
                   cell.inMonth
                     ? "border-slate-200 bg-white shadow-sm"
                     : "border-slate-100 bg-slate-50/40 opacity-60"
                 }`}
               >
-                <button
-                  type="button"
-                  className={`text-xs ${cell.isWeekend ? "text-rose-600" : "text-slate-500"}`}
-                  onClick={() => setSelectedDateDetail(cell.key)}
-                >
-                  {cell.day}
-                </button>
-                <div className="mt-1 space-y-1">
-                  {(() => {
-                    const events = getPreviewStaffByDate(cell.key)
-                      .map((member) => {
-                        const shiftCode = assignments[cell.key]?.[member.id];
-                        if (!shiftCode) {
-                          return null;
-                        }
-                        if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
-                          return null;
-                        }
-                        return { member, shiftType: getShiftType(shiftCode) };
-                      })
-                      .filter((item) => item !== null);
-                    const visible = events.slice(0, 3);
-                    const hiddenCount = Math.max(0, events.length - visible.length);
-                    return (
-                      <>
-                        {visible.map((event) => (
-                          <button
-                            type="button"
-                            key={`${cell.key}-${event.member.id}`}
-                            className={`w-full truncate rounded px-1 py-0.5 text-left text-[10px] ${
-                              canEditCalendar ? "cursor-pointer hover:brightness-95" : ""
-                            }`}
-                            style={{ backgroundColor: event.shiftType.color }}
-                            title={`${event.member.name} ${event.shiftType.label}`}
-                            onClick={() => {
-                              if (canEditCalendar) {
-                                openCalendarEditor(cell.key, event.member.id);
-                              }
-                            }}
-                          >
-                            {event.member.name}
-                          </button>
-                        ))}
-                        {hiddenCount > 0 && <div className="text-[10px] text-slate-500">+{hiddenCount}件</div>}
-                      </>
-                    );
-                  })()}
-                </div>
-                {canEditCalendar && (
+                {!canEditCalendar ? (
                   <button
                     type="button"
-                    className="mt-1 min-h-11 w-full rounded border border-dashed border-slate-300 px-1 py-1.5 text-[10px] text-slate-500"
-                    onClick={() => openCalendarEditor(cell.key)}
-                  >
-                    + 編集
-                  </button>
-                )}
+                    className="absolute inset-0 z-10 rounded-xl"
+                    aria-label={`${cell.day}日の詳細を表示`}
+                    onClick={() => setSelectedDateDetail(cell.key)}
+                  />
+                ) : null}
+                <div className={!canEditCalendar ? "relative z-20 pointer-events-none" : "relative z-20"}>
+                  {canEditCalendar ? (
+                    <button
+                      type="button"
+                      className={`min-h-11 w-full rounded-lg px-1 text-left text-xs touch-manipulation ${
+                        cell.isWeekend ? "text-rose-600" : "text-slate-500"
+                      }`}
+                      onClick={() => setSelectedDateDetail(cell.key)}
+                    >
+                      {cell.day}
+                    </button>
+                  ) : (
+                    <span
+                      className={`block min-h-[2.75rem] text-xs leading-8 ${
+                        cell.isWeekend ? "text-rose-600" : "text-slate-500"
+                      }`}
+                    >
+                      {cell.day}
+                    </span>
+                  )}
+                  <div className="mt-1 space-y-1">
+                    {(() => {
+                      const events = getPreviewStaffByDate(cell.key)
+                        .map((member) => {
+                          const shiftCode = assignments[cell.key]?.[member.id];
+                          if (!shiftCode) {
+                            return null;
+                          }
+                          if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
+                            return null;
+                          }
+                          return { member, shiftType: getShiftType(shiftCode) };
+                        })
+                        .filter((item) => item !== null);
+                      const visible = events.slice(0, 3);
+                      const hiddenCount = Math.max(0, events.length - visible.length);
+                      return (
+                        <>
+                          {visible.map((event) =>
+                            canEditCalendar ? (
+                              <button
+                                type="button"
+                                key={`${cell.key}-${event.member.id}`}
+                                className="pointer-events-auto w-full truncate rounded px-1 py-0.5 text-left text-[10px] hover:brightness-95"
+                                style={{ backgroundColor: event.shiftType.color }}
+                                title={`${event.member.name} ${event.shiftType.label}`}
+                                onClick={() => openCalendarEditor(cell.key, event.member.id)}
+                              >
+                                {event.member.name}
+                              </button>
+                            ) : (
+                              <div
+                                key={`${cell.key}-${event.member.id}`}
+                                className="w-full truncate rounded px-1 py-0.5 text-left text-[10px]"
+                                style={{ backgroundColor: event.shiftType.color }}
+                                title={`${event.member.name} ${event.shiftType.label}`}
+                              >
+                                {event.member.name}
+                              </div>
+                            ),
+                          )}
+                          {hiddenCount > 0 && <div className="text-[10px] text-slate-500">+{hiddenCount}件</div>}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  {canEditCalendar && (
+                    <button
+                      type="button"
+                      className="pointer-events-auto mt-1 min-h-11 w-full rounded border border-dashed border-slate-300 px-1 py-1.5 text-[10px] text-slate-500 touch-manipulation"
+                      onClick={() => openCalendarEditor(cell.key)}
+                    >
+                      + 編集
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -205,58 +232,83 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
             {monthCells.map((cell) => (
               <div
                 key={cell.key}
-                className={`min-h-28 rounded-xl border p-2 transition ${
+                className={`relative min-h-28 touch-manipulation rounded-xl border p-2 transition ${
                   cell.inMonth
                     ? "border-slate-200 bg-white shadow-sm"
                     : "border-slate-100 bg-slate-50/40 opacity-70"
                 }`}
               >
-                <button
-                  type="button"
-                  className={`text-xs ${cell.isWeekend ? "text-rose-600" : "text-slate-500"}`}
-                  onClick={() => setSelectedDateDetail(cell.key)}
-                >
-                  {cell.day}
-                </button>
-                <div className="mt-1 space-y-1">
-                  {getPreviewStaffByDate(cell.key).map((member) => {
-                    const shiftCode = assignments[cell.key]?.[member.id];
-                    const shiftType = getShiftType(shiftCode);
-                    if (!shiftCode) {
-                      return null;
-                    }
-                    if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
-                      return null;
-                    }
-                    return (
-                      <button
-                        type="button"
-                        key={`${cell.key}-${member.id}`}
-                        className={`truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm ${
-                          canEditCalendar ? "cursor-pointer hover:brightness-95" : ""
-                        }`}
-                        style={{ backgroundColor: shiftType.color }}
-                        title={`${member.name} ${shiftType.label}`}
-                        onClick={() => {
-                          if (canEditCalendar) {
-                            openCalendarEditor(cell.key, member.id);
-                          }
-                        }}
-                      >
-                        {member.name} {shiftType.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {canEditCalendar && (
+                {!canEditCalendar ? (
                   <button
                     type="button"
-                    className="mt-2 min-h-11 w-full rounded-md border border-dashed border-slate-300 px-2 py-2 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
-                    onClick={() => openCalendarEditor(cell.key)}
-                  >
-                    + 追加 / 編集
-                  </button>
-                )}
+                    className="absolute inset-0 z-10 rounded-xl"
+                    aria-label={`${cell.day}日の詳細を表示`}
+                    onClick={() => setSelectedDateDetail(cell.key)}
+                  />
+                ) : null}
+                <div className={!canEditCalendar ? "relative z-20 pointer-events-none" : "relative z-20"}>
+                  {canEditCalendar ? (
+                    <button
+                      type="button"
+                      className={`min-h-11 w-full rounded-lg px-1 text-left text-xs touch-manipulation ${
+                        cell.isWeekend ? "text-rose-600" : "text-slate-500"
+                      }`}
+                      onClick={() => setSelectedDateDetail(cell.key)}
+                    >
+                      {cell.day}
+                    </button>
+                  ) : (
+                    <span
+                      className={`block min-h-[2.75rem] text-xs leading-8 ${
+                        cell.isWeekend ? "text-rose-600" : "text-slate-500"
+                      }`}
+                    >
+                      {cell.day}
+                    </span>
+                  )}
+                  <div className="mt-1 space-y-1">
+                    {getPreviewStaffByDate(cell.key).map((member) => {
+                      const shiftCode = assignments[cell.key]?.[member.id];
+                      const shiftType = getShiftType(shiftCode);
+                      if (!shiftCode) {
+                        return null;
+                      }
+                      if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
+                        return null;
+                      }
+                      return canEditCalendar ? (
+                        <button
+                          type="button"
+                          key={`${cell.key}-${member.id}`}
+                          className="pointer-events-auto truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm hover:brightness-95"
+                          style={{ backgroundColor: shiftType.color }}
+                          title={`${member.name} ${shiftType.label}`}
+                          onClick={() => openCalendarEditor(cell.key, member.id)}
+                        >
+                          {member.name} {shiftType.label}
+                        </button>
+                      ) : (
+                        <div
+                          key={`${cell.key}-${member.id}`}
+                          className="truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm"
+                          style={{ backgroundColor: shiftType.color }}
+                          title={`${member.name} ${shiftType.label}`}
+                        >
+                          {member.name} {shiftType.label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {canEditCalendar && (
+                    <button
+                      type="button"
+                      className="pointer-events-auto mt-2 min-h-11 w-full rounded-md border border-dashed border-slate-300 px-2 py-2 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600 touch-manipulation"
+                      onClick={() => openCalendarEditor(cell.key)}
+                    >
+                      + 追加 / 編集
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -311,13 +363,15 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                 key={day.key}
                 className={`rounded-2xl border bg-white p-3 shadow-sm ${day.isWeekend ? "border-rose-200" : "border-slate-200"}`}
               >
-                <div
-                  className={`mb-2 border-b pb-2 text-sm font-semibold ${
-                    day.isWeekend ? "border-rose-100 text-rose-600" : "border-slate-100"
+                <button
+                  type="button"
+                  className={`mb-2 min-h-12 w-full touch-manipulation border-b pb-2 text-left text-sm font-semibold transition active:bg-slate-50 ${
+                    day.isWeekend ? "border-rose-100 text-rose-600" : "border-slate-100 text-slate-800"
                   }`}
+                  onClick={() => setSelectedDateDetail(day.key)}
                 >
                   {day.weekday} {day.month}/{day.day}
-                </div>
+                </button>
                 <div className="space-y-1">
                   {getPreviewStaffByDate(day.key).map((member) => {
                     const code = assignments[day.key]?.[member.id] ?? "REGULAR_OFF";

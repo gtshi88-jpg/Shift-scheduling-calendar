@@ -1,5 +1,5 @@
 /**
- * Generates solid-color PNG icons for PWA manifest (no extra dependencies).
+ * 単色プレースホルダー用。本番アイコンは `public/icon-*.png` をデザイン画像で差し替えている場合があります（上書きに注意）。
  */
 import { writeFileSync } from "fs";
 import { dirname, join } from "path";

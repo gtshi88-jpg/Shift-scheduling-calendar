@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
-const THEME = "#2563eb";
+/** アイコン背景の青に合わせたツールバー色 */
+const THEME = "#1e40af";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

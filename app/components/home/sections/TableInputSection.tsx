@@ -34,6 +34,7 @@ export function TableInputSection(props: TableInputSectionProps) {
     memberMonthLocked,
     totalsByStaff,
     totalsByDate,
+    monthDaysInMonth,
     workingCountByDate,
     targetByDate,
     staffingBalanceSummary,
@@ -164,8 +165,9 @@ export function TableInputSection(props: TableInputSectionProps) {
                   <div className="text-[10px] text-slate-400">{day.weekday}</div>
                 </th>
               ))}
-              <th className="min-w-36 border-b border-slate-200 px-2 py-2 text-center text-xs text-slate-600">
-                合計（出 / 欠 / 有 / 希）
+              <th className="min-w-[11rem] border-b border-slate-200 px-2 py-2 text-center text-xs text-slate-600 sm:min-w-[12.5rem]">
+                <div>合計（出 / 欠 / 有 / 希 / 公休）</div>
+                <div className="mt-0.5 text-[10px] font-normal text-slate-400">全{monthDaysInMonth}日分</div>
               </th>
             </tr>
           </thead>
@@ -243,13 +245,17 @@ export function TableInputSection(props: TableInputSectionProps) {
                   /{" "}
                   <span className="font-semibold text-fuchsia-700">
                     {totalsByStaff[member.id]?.requestOff ?? 0}
+                  </span>{" "}
+                  /{" "}
+                  <span className="font-semibold text-red-600">
+                    {totalsByStaff[member.id]?.regularOff ?? 0}
                   </span>
                 </td>
               </tr>
             ))}
             <tr className="bg-slate-50">
               <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
-                日別人数（出 / 欠 / 有 / 希）
+                日別人数（出 / 欠 / 有 / 希 / 公休）
               </td>
               {visibleMonthDays.map((day) => (
                 <td
@@ -263,10 +269,14 @@ export function TableInputSection(props: TableInputSectionProps) {
                   /{" "}
                   <span className="font-semibold text-fuchsia-700">
                     {totalsByDate[day.key]?.requestOff ?? 0}
-                  </span>
+                  </span>{" "}
+                  /{" "}
+                  <span className="font-semibold text-red-600">{totalsByDate[day.key]?.regularOff ?? 0}</span>
                 </td>
               ))}
-              <td className="border-b border-slate-200 px-2 py-2 text-center text-[11px] text-slate-500">-</td>
+              <td className="border-b border-slate-200 px-2 py-2 text-center text-[11px] text-slate-500">
+                計{monthDaysInMonth}日
+              </td>
             </tr>
             <tr className="bg-indigo-50/50">
               <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-indigo-50/60 px-3 py-2 text-xs font-semibold text-indigo-900">

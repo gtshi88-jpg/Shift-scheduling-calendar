@@ -40,7 +40,7 @@ export function TodayStatusSection({
         <div className="mt-2 flex flex-wrap gap-2">
           {mobileTodayPresent.length === 0 && <span className="text-xs text-slate-400">出勤者なし</span>}
           {mobileTodayPresent.map((member) => {
-            const code = assignments[todayKey]?.[member.id] ?? "REGULAR_OFF";
+            const code = assignments[todayKey]?.[member.id] ?? "WORK";
             const shiftType = getShiftType(code);
             return (
               <span
@@ -59,7 +59,7 @@ export function TodayStatusSection({
         <div className="mt-2 flex flex-wrap gap-2">
           {mobileTodayAbsent.length === 0 && <span className="text-xs text-slate-400">不在者なし</span>}
           {mobileTodayAbsent.map((member) => {
-            const code = assignments[todayKey]?.[member.id] ?? "REGULAR_OFF";
+            const code = assignments[todayKey]?.[member.id] ?? "WORK";
             const shiftType = getShiftType(code);
             return (
               <span

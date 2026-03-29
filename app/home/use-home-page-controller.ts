@@ -240,23 +240,6 @@ function isWorkingShift(code: ShiftCode | undefined): boolean {
   return code === "WORK" || code === "A_SHIFT" || code === "P_SHIFT";
 }
 
-function buildMiniCalendarCells(baseMonth: Date) {
-  const year = baseMonth.getFullYear();
-  const month = baseMonth.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const startDate = new Date(year, month, 1 - firstDay);
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + index);
-    return {
-      key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
-      day: date.getDate(),
-      date,
-      inCurrentMonth: date.getMonth() === month,
-    };
-  });
-}
-
 function getMonthStartKey(baseMonth: Date): string {
   const year = baseMonth.getFullYear();
   const month = String(baseMonth.getMonth() + 1).padStart(2, "0");
@@ -340,7 +323,8 @@ export function useHomePageController() {
   const [weekFocusDate, setWeekFocusDate] = useState("2026-03-01");
   const [staff, setStaff] = useState<StaffMember[]>(() => fallback.staff.map(normalizeStaffMember));
   const [jobTypes, setJobTypes] = useState<StaffJobTypeRecord[]>(() => defaultStaffJobTypesSeed());
-  const [staffJobFilter, setStaffJobFilter] = useState<StaffJobFilter>("all");
+  /** 初期は「全職種」ではなく 1 職種（カウンセラー相当）で情報量を抑える */
+  const [staffJobFilter, setStaffJobFilter] = useState<StaffJobFilter>(FALLBACK_STAFF_JOB_TYPE_ID);
   const [assignments, setAssignments] = useState<ShiftAssignmentMap>(fallback.assignments);
   const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -350,7 +334,6 @@ export function useHomePageController() {
   /** ログイン POST 〜 シフト取得完了まで true（成功時はメイン画面へ移る前の待機表示用） */
   const [loginBusy, setLoginBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [showMonthlySummaryMobile, setShowMonthlySummaryMobile] = useState(false);
   const [showTableOptions, setShowTableOptions] = useState(false);
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
@@ -445,8 +428,11 @@ export function useHomePageController() {
     if (staffJobFilter === "all") {
       return;
     }
+    if (jobTypes.length === 0) {
+      return;
+    }
     if (!jobTypes.some((j) => j.id === staffJobFilter)) {
-      setStaffJobFilter("all");
+      setStaffJobFilter(jobTypes[0]?.id ?? FALLBACK_STAFF_JOB_TYPE_ID);
     }
   }, [jobTypes, staffJobFilter]);
   const monthVisibleStaff = useMemo(
@@ -466,7 +452,6 @@ export function useHomePageController() {
   }, [monthDays, tableRangeMode]);
   const monthCells = useMemo(() => buildMonthCells(currentMonth), [currentMonth]);
   const weekDays = useMemo(() => createWeekDays(weekFocusDate), [weekFocusDate]);
-  const miniCalendarCells = useMemo(() => buildMiniCalendarCells(currentMonth), [currentMonth]);
   const holidayDateSet = useMemo(
     () =>
       new Set(
@@ -523,35 +508,45 @@ export function useHomePageController() {
   }, [currentMonth]);
   const currentMonthLabel = useMemo(() => getMonthLabel(currentMonth), [currentMonth]);
   const totalsByStaff = useMemo(() => {
-    const result: Record<string, { work: number; absent: number; paidLeave: number; requestOff: number }> = {};
-    for (const member of jobFilteredMonthStaff) result[member.id] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0 };
+    const result: Record<
+      string,
+      { work: number; absent: number; paidLeave: number; requestOff: number; regularOff: number }
+    > = {};
+    for (const member of jobFilteredMonthStaff) {
+      result[member.id] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0, regularOff: 0 };
+    }
     for (const day of monthDays) {
       const byStaff = assignments[day.key] ?? {};
       for (const member of jobFilteredMonthStaff) {
-        const code = byStaff[member.id] ?? "REGULAR_OFF";
-        if (code === "WORK") result[member.id].work += 1;
-        if (code === "ABSENT") result[member.id].absent += 1;
-        if (code === "PAID_LEAVE") result[member.id].paidLeave += 1;
-        if (code === "REQUEST_OFF") result[member.id].requestOff += 1;
+        const code = byStaff[member.id] ?? "WORK";
+        if (isWorkingShift(code)) result[member.id].work += 1;
+        else if (code === "ABSENT") result[member.id].absent += 1;
+        else if (code === "PAID_LEAVE") result[member.id].paidLeave += 1;
+        else if (code === "REQUEST_OFF") result[member.id].requestOff += 1;
+        else if (code === "REGULAR_OFF") result[member.id].regularOff += 1;
       }
     }
     return result;
   }, [assignments, monthDays, jobFilteredMonthStaff]);
   const totalsByDate = useMemo(() => {
-    const result: Record<string, { work: number; absent: number; paidLeave: number; requestOff: number }> = {};
+    const result: Record<
+      string,
+      { work: number; absent: number; paidLeave: number; requestOff: number; regularOff: number }
+    > = {};
     for (const day of monthDays) {
-      result[day.key] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0 };
+      result[day.key] = { work: 0, absent: 0, paidLeave: 0, requestOff: 0, regularOff: 0 };
       const byStaff = assignments[day.key] ?? {};
       let dateStaff = staff.filter((member) => isStaffActiveOnDate(member, day.key));
       if (staffJobFilter !== "all") {
         dateStaff = dateStaff.filter((member) => member.jobTypeId === staffJobFilter);
       }
       for (const member of dateStaff) {
-        const code = byStaff[member.id] ?? "REGULAR_OFF";
-        if (code === "WORK") result[day.key].work += 1;
-        if (code === "ABSENT") result[day.key].absent += 1;
-        if (code === "PAID_LEAVE") result[day.key].paidLeave += 1;
-        if (code === "REQUEST_OFF") result[day.key].requestOff += 1;
+        const code = byStaff[member.id] ?? "WORK";
+        if (isWorkingShift(code)) result[day.key].work += 1;
+        else if (code === "ABSENT") result[day.key].absent += 1;
+        else if (code === "PAID_LEAVE") result[day.key].paidLeave += 1;
+        else if (code === "REQUEST_OFF") result[day.key].requestOff += 1;
+        else if (code === "REGULAR_OFF") result[day.key].regularOff += 1;
       }
     }
     return result;
@@ -566,7 +561,7 @@ export function useHomePageController() {
         dateStaff = dateStaff.filter((member) => member.jobTypeId === staffJobFilter);
       }
       for (const member of dateStaff) {
-        const code = byStaff[member.id] ?? "REGULAR_OFF";
+        const code = byStaff[member.id] ?? "WORK";
         if (code === "WORK" || code === "A_SHIFT" || code === "P_SHIFT") count += 1;
       }
       result[day.key] = count;
@@ -672,15 +667,15 @@ export function useHomePageController() {
     if (previewSortMode === "createdOrder") return dateStaff;
     if (previewSortMode === "name") return [...dateStaff].sort((a, b) => a.name.localeCompare(b.name, "ja"));
     return [...dateStaff].sort((a, b) => {
-      const aWorking = isWorkingShift(assignments[dateKey]?.[a.id]);
-      const bWorking = isWorkingShift(assignments[dateKey]?.[b.id]);
+      const aWorking = isWorkingShift(assignments[dateKey]?.[a.id] ?? "WORK");
+      const bWorking = isWorkingShift(assignments[dateKey]?.[b.id] ?? "WORK");
       if (aWorking === bWorking) return 0;
       return aWorking ? -1 : 1;
     });
   };
   const detailStaffByDate = (dateKey: string) =>
     getPreviewStaffByDate(dateKey).map((member) => {
-      const code = assignments[dateKey]?.[member.id] ?? "REGULAR_OFF";
+      const code = assignments[dateKey]?.[member.id] ?? "WORK";
       return { member, code, shiftType: SHIFT_MAP[code] ?? SHIFT_MAP.REGULAR_OFF };
     });
   const todayKey = useMemo(() => {
@@ -694,15 +689,15 @@ export function useHomePageController() {
   }, [holidayDateSet, targetHoliday, targetWeekend, targetWeekday, todayKey]);
   const mobileTodaySortedStaff = getPreviewStaffByDate(todayKey);
   const todayWorkingCount = useMemo(
-    () => mobileTodaySortedStaff.filter((member) => isWorkingShift(assignments[todayKey]?.[member.id] ?? "REGULAR_OFF")).length,
+    () => mobileTodaySortedStaff.filter((member) => isWorkingShift(assignments[todayKey]?.[member.id] ?? "WORK")).length,
     [assignments, mobileTodaySortedStaff, todayKey],
   );
   const mobileTodayPresent = useMemo(
-    () => mobileTodaySortedStaff.filter((member) => isWorkingShift(assignments[todayKey]?.[member.id] ?? "REGULAR_OFF")),
+    () => mobileTodaySortedStaff.filter((member) => isWorkingShift(assignments[todayKey]?.[member.id] ?? "WORK")),
     [assignments, mobileTodaySortedStaff, todayKey],
   );
   const mobileTodayAbsent = useMemo(
-    () => mobileTodaySortedStaff.filter((member) => !isWorkingShift(assignments[todayKey]?.[member.id] ?? "REGULAR_OFF")),
+    () => mobileTodaySortedStaff.filter((member) => !isWorkingShift(assignments[todayKey]?.[member.id] ?? "WORK")),
     [assignments, mobileTodaySortedStaff, todayKey],
   );
   const getShiftType = (code: ShiftCode | undefined): ShiftType => (code ? SHIFT_MAP[code] ?? SHIFT_MAP.REGULAR_OFF : SHIFT_MAP.REGULAR_OFF);
@@ -739,7 +734,7 @@ export function useHomePageController() {
     }
     const selectedStaffId =
       preferredStaffId && dateStaff.some((member) => member.id === preferredStaffId) ? preferredStaffId : dateStaff[0].id;
-    const currentCode = assignments[dateKey]?.[selectedStaffId] ?? "REGULAR_OFF";
+    const currentCode = assignments[dateKey]?.[selectedStaffId] ?? "WORK";
     const existingCode = isMember && !MEMBER_EDITABLE_CODES.includes(currentCode) ? "REQUEST_OFF" : currentCode;
     setCalendarEditor({ dateKey, staffId: selectedStaffId, code: existingCode });
   };
@@ -940,7 +935,6 @@ export function useHomePageController() {
     isAdmin,
     inputMode,
     currentMonth,
-    monthPickerOpen,
     saveStatus,
     warnings,
     todayKey,
@@ -991,7 +985,6 @@ export function useHomePageController() {
     createStaffJobTypeRemote,
     deleteStaffJobTypeRemote,
     updateStaffJobTypeLabelRemote,
-    miniCalendarCells,
     setLoginUsername,
     loginUsername,
     setLoginPassword,
@@ -1000,7 +993,6 @@ export function useHomePageController() {
     loginBusy,
     handleLogin,
     handleLogout,
-    setMonthPickerOpen,
     setInputMode,
     moveMonth,
     setCurrentMonth,

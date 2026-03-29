@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMonthLabel } from "@/app/utils/schedule";
+import { getMonthLabel, parseMonthInput, toMonthInput } from "@/app/utils/schedule";
 import type { StaffJobFilter } from "@/app/types";
 import type { HeaderSectionProps } from "@/app/components/home/sections/types";
-
-const MINI_WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 function HamburgerIcon({ open }: { open: boolean }) {
   if (open) {
@@ -24,19 +22,79 @@ function HamburgerIcon({ open }: { open: boolean }) {
   );
 }
 
+function MonthNavRow({
+  currentMonth,
+  moveMonth,
+  setCurrentMonth,
+  dense,
+}: {
+  currentMonth: Date;
+  moveMonth: (delta: number) => void;
+  setCurrentMonth: (value: Date) => void;
+  dense?: boolean;
+}) {
+  const goToThisMonth = () => {
+    const n = new Date();
+    setCurrentMonth(new Date(n.getFullYear(), n.getMonth(), 1));
+  };
+
+  const btn = dense
+    ? "rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+    : "rounded-xl px-2.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100";
+
+  return (
+    <div
+      className={
+        dense
+          ? "flex w-full flex-col gap-2"
+          : "inline-flex flex-wrap items-center gap-2"
+      }
+    >
+      <div className="inline-flex max-w-full items-center gap-0.5 rounded-2xl border border-slate-200 bg-white p-0.5 shadow-sm">
+        <button type="button" aria-label="前の月" onClick={() => moveMonth(-1)} className={btn}>
+          ←
+        </button>
+        <label className="relative flex min-w-[6.5rem] flex-1 cursor-pointer items-center justify-center gap-1 px-2 py-1 sm:min-w-[7.5rem] sm:py-1.5">
+          <span className="text-sm font-semibold text-slate-800">{getMonthLabel(currentMonth)}</span>
+          <input
+            type="month"
+            value={toMonthInput(currentMonth)}
+            onChange={(event) => {
+              const v = event.target.value;
+              if (v) setCurrentMonth(parseMonthInput(v));
+            }}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label="年月を選択"
+          />
+          <span className="pointer-events-none text-xs text-slate-400" aria-hidden>
+            ▼
+          </span>
+        </label>
+        <button type="button" aria-label="次の月" onClick={() => moveMonth(1)} className={btn}>
+          →
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={goToThisMonth}
+        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+      >
+        今月へ
+      </button>
+    </div>
+  );
+}
+
 export function HeaderSection(props: HeaderSectionProps) {
   const {
     isAdmin,
     user,
     handleLogout,
-    monthPickerOpen,
-    setMonthPickerOpen,
     currentMonth,
     saveStatus,
     inputMode,
     setInputMode,
     moveMonth,
-    miniCalendarCells,
     setCurrentMonth,
     showInputModeToggle = true,
     staffJobFilter,
@@ -97,14 +155,15 @@ export function HeaderSection(props: HeaderSectionProps) {
         >
           ログアウト
         </button>
-        <button
-          type="button"
-          onClick={() => setMonthPickerOpen((prev) => !prev)}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <span>{getMonthLabel(currentMonth)}</span>
-          <span className="text-xs text-slate-400">▼</span>
-        </button>
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-500">表示する月</p>
+          <MonthNavRow
+            dense
+            currentMonth={currentMonth}
+            moveMonth={moveMonth}
+            setCurrentMonth={setCurrentMonth}
+          />
+        </div>
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 shadow-sm">
           保存状態: {saveStatus === "saving" ? "保存中…" : saveStatus === "error" ? "保存失敗" : "正常"}
         </div>
@@ -133,63 +192,6 @@ export function HeaderSection(props: HeaderSectionProps) {
           </div>
         ) : null}
       </div>
-      {monthPickerOpen && (
-        <div className="mt-4 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-inner">
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:bg-slate-100"
-              onClick={() => moveMonth(-1)}
-            >
-              ←
-            </button>
-            <p className="text-sm font-semibold text-slate-700">{getMonthLabel(currentMonth)}</p>
-            <button
-              type="button"
-              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:bg-slate-100"
-              onClick={() => moveMonth(1)}
-            >
-              →
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {MINI_WEEKDAY_LABELS.map((weekday) => (
-              <div
-                key={`mini-weekday-${weekday}`}
-                className="py-1 text-center text-sm font-medium text-slate-500"
-              >
-                {weekday}
-              </div>
-            ))}
-            {miniCalendarCells.map((cell) => {
-              const today = new Date();
-              const isToday =
-                today.getFullYear() === cell.date.getFullYear() &&
-                today.getMonth() === cell.date.getMonth() &&
-                today.getDate() === cell.date.getDate();
-              return (
-                <button
-                  key={cell.key}
-                  type="button"
-                  className={`h-9 rounded-full text-sm transition ${
-                    isToday
-                      ? "bg-blue-600 text-white"
-                      : cell.inCurrentMonth
-                        ? "text-slate-800 hover:bg-slate-100"
-                        : "text-slate-400 hover:bg-slate-100"
-                  }`}
-                  onClick={() => {
-                    setCurrentMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
-                    setMonthPickerOpen(false);
-                  }}
-                >
-                  {cell.day}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </>
   );
 
@@ -269,14 +271,7 @@ export function HeaderSection(props: HeaderSectionProps) {
           >
             ログアウト
           </button>
-          <button
-            type="button"
-            onClick={() => setMonthPickerOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            <span>{getMonthLabel(currentMonth)}</span>
-            <span className="text-xs text-slate-400">▼</span>
-          </button>
+          <MonthNavRow currentMonth={currentMonth} moveMonth={moveMonth} setCurrentMonth={setCurrentMonth} />
           <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
             保存状態: {saveStatus === "saving" ? "保存中..." : saveStatus === "error" ? "保存失敗" : "正常"}
           </div>
@@ -305,63 +300,6 @@ export function HeaderSection(props: HeaderSectionProps) {
             </div>
           ) : null}
         </div>
-        {monthPickerOpen && (
-          <div className="mt-3 w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <button
-                type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:bg-slate-100"
-                onClick={() => moveMonth(-1)}
-              >
-                ←
-              </button>
-              <p className="text-sm font-semibold text-slate-700">{getMonthLabel(currentMonth)}</p>
-              <button
-                type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:bg-slate-100"
-                onClick={() => moveMonth(1)}
-              >
-                →
-              </button>
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {MINI_WEEKDAY_LABELS.map((weekday) => (
-                <div
-                  key={`mini-weekday-d-${weekday}`}
-                  className="py-1 text-center text-sm font-medium text-slate-500"
-                >
-                  {weekday}
-                </div>
-              ))}
-              {miniCalendarCells.map((cell) => {
-                const today = new Date();
-                const isToday =
-                  today.getFullYear() === cell.date.getFullYear() &&
-                  today.getMonth() === cell.date.getMonth() &&
-                  today.getDate() === cell.date.getDate();
-                return (
-                  <button
-                    key={`d-${cell.key}`}
-                    type="button"
-                    className={`h-9 rounded-full text-sm transition ${
-                      isToday
-                        ? "bg-blue-600 text-white"
-                        : cell.inCurrentMonth
-                          ? "text-slate-800 hover:bg-slate-100"
-                          : "text-slate-400 hover:bg-slate-100"
-                    }`}
-                    onClick={() => {
-                      setCurrentMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
-                      setMonthPickerOpen(false);
-                    }}
-                  >
-                    {cell.day}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </section>
     </>
   );

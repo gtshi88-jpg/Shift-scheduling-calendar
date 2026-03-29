@@ -28,7 +28,7 @@ export function CalendarEditorModal(props: CalendarEditorModalProps) {
               value={calendarEditor.staffId}
               onChange={(event) => {
                 const staffId = event.target.value;
-                const code = assignments[calendarEditor.dateKey]?.[staffId] ?? "REGULAR_OFF";
+                const code = assignments[calendarEditor.dateKey]?.[staffId] ?? "WORK";
                 setCalendarEditor({
                   ...calendarEditor,
                   staffId,

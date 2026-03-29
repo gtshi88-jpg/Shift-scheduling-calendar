@@ -159,10 +159,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                     {(() => {
                       const events = getPreviewStaffByDate(cell.key)
                         .map((member) => {
-                          const shiftCode = assignments[cell.key]?.[member.id];
-                          if (!shiftCode) {
-                            return null;
-                          }
+                          const shiftCode = assignments[cell.key]?.[member.id] ?? "WORK";
                           if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
                             return null;
                           }
@@ -183,7 +180,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                                 title={`${event.member.name} ${event.shiftType.label}`}
                                 onClick={() => openCalendarEditor(cell.key, event.member.id)}
                               >
-                                {event.member.name}
+                                {event.member.name} {event.shiftType.label}
                               </button>
                             ) : (
                               <div
@@ -192,7 +189,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                                 style={{ backgroundColor: event.shiftType.color }}
                                 title={`${event.member.name} ${event.shiftType.label}`}
                               >
-                                {event.member.name}
+                                {event.member.name} {event.shiftType.label}
                               </div>
                             ),
                           )}
@@ -266,13 +263,10 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                       {cell.day}
                     </span>
                   )}
-                  <div className="mt-1 space-y-1">
+                  <div className="mt-1 grid grid-cols-1 gap-1 xl:grid-cols-2">
                     {getPreviewStaffByDate(cell.key).map((member) => {
-                      const shiftCode = assignments[cell.key]?.[member.id];
+                      const shiftCode = assignments[cell.key]?.[member.id] ?? "WORK";
                       const shiftType = getShiftType(shiftCode);
-                      if (!shiftCode) {
-                        return null;
-                      }
                       if (shiftCode === "REGULAR_OFF" && !showRegularOffInMonth) {
                         return null;
                       }
@@ -280,7 +274,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                         <button
                           type="button"
                           key={`${cell.key}-${member.id}`}
-                          className="pointer-events-auto truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm hover:brightness-95"
+                          className="pointer-events-auto min-w-0 truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm hover:brightness-95"
                           style={{ backgroundColor: shiftType.color }}
                           title={`${member.name} ${shiftType.label}`}
                           onClick={() => openCalendarEditor(cell.key, member.id)}
@@ -290,7 +284,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                       ) : (
                         <div
                           key={`${cell.key}-${member.id}`}
-                          className="truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm"
+                          className="min-w-0 truncate rounded-md px-1 py-0.5 text-left text-xs shadow-sm"
                           style={{ backgroundColor: shiftType.color }}
                           title={`${member.name} ${shiftType.label}`}
                         >
@@ -374,7 +368,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                 </button>
                 <div className="space-y-1">
                   {getPreviewStaffByDate(day.key).map((member) => {
-                    const code = assignments[day.key]?.[member.id] ?? "REGULAR_OFF";
+                    const code = assignments[day.key]?.[member.id] ?? "WORK";
                     const shiftType = getShiftType(code);
                     return (
                       <div

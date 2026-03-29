@@ -16,20 +16,13 @@ export type InputMode = "table" | "calendar";
 export type TableRangeMode = "all" | "firstHalf" | "secondHalf";
 export type PreviewSortMode = "presentFirst" | "createdOrder" | "name";
 
-export type MiniCalendarCell = {
-  key: string;
-  day: number;
-  date: Date;
-  inCurrentMonth: boolean;
-};
-
 export type TotalsByMember = Record<
   string,
-  { work: number; absent: number; paidLeave: number; requestOff: number }
+  { work: number; absent: number; paidLeave: number; requestOff: number; regularOff: number }
 >;
 export type TotalsByDate = Record<
   string,
-  { work: number; absent: number; paidLeave: number; requestOff: number }
+  { work: number; absent: number; paidLeave: number; requestOff: number; regularOff: number }
 >;
 
 export type LoginViewProps = {
@@ -47,14 +40,11 @@ export type HeaderSectionProps = {
   isAdmin: boolean;
   user: AuthUser;
   handleLogout: () => void;
-  monthPickerOpen: boolean;
-  setMonthPickerOpen: Dispatch<SetStateAction<boolean>>;
   currentMonth: Date;
   saveStatus: "idle" | "saving" | "error";
   inputMode: InputMode;
   setInputMode: (mode: InputMode) => void;
   moveMonth: (delta: number) => void;
-  miniCalendarCells: MiniCalendarCell[];
   setCurrentMonth: (value: Date) => void;
   /** false のとき表/カレンダー切替を非表示（ダッシュボード等） */
   showInputModeToggle?: boolean;
@@ -118,6 +108,8 @@ export type TableInputSectionProps = {
   memberMonthLocked: boolean;
   totalsByStaff: TotalsByMember;
   totalsByDate: TotalsByDate;
+  /** 合計列の集計対象日数（当月の暦日数 28〜31） */
+  monthDaysInMonth: number;
   workingCountByDate: Record<string, number>;
   targetByDate: Record<string, number>;
   staffingBalanceSummary: { shortageDays: number; surplusDays: number; exactDays: number };

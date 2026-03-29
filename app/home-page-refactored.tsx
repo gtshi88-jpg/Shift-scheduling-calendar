@@ -63,14 +63,11 @@ export default function HomePageRefactored() {
               isAdmin={controller.isAdmin}
               user={controller.user}
               handleLogout={controller.handleLogout}
-              monthPickerOpen={controller.monthPickerOpen}
-              setMonthPickerOpen={controller.setMonthPickerOpen}
               currentMonth={controller.currentMonth}
               saveStatus={controller.saveStatus}
               inputMode={controller.inputMode}
               setInputMode={controller.setInputMode}
               moveMonth={controller.moveMonth}
-              miniCalendarCells={controller.miniCalendarCells}
               setCurrentMonth={controller.setCurrentMonth}
               showInputModeToggle={navPanel === "input"}
               staffJobFilter={controller.staffJobFilter}
@@ -196,6 +193,7 @@ export default function HomePageRefactored() {
                   memberMonthLocked={controller.memberMonthLocked}
                   totalsByStaff={controller.totalsByStaff}
                   totalsByDate={controller.totalsByDate}
+                  monthDaysInMonth={controller.monthDays.length}
                   workingCountByDate={controller.workingCountByDate}
                   targetByDate={controller.targetByDate}
                   staffingBalanceSummary={controller.staffingBalanceSummary}

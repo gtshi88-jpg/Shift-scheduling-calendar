@@ -55,31 +55,6 @@ export async function readShiftStore(): Promise<ShiftStore> {
       activeTo: row.active_to,
     }));
 
-    // #region agent log
-    const debugRunId = `readShiftStore_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`;
-    try {
-      const { count: totalCount, error: countError } = await supabase
-        .from("shift_assignments")
-        .select("work_date", { count: "exact", head: true });
-      if (!countError) {
-        void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            runId: debugRunId,
-            hypothesisId: "H9_shiftAssignmentsCountVsReturned",
-            location: "lib/shift-store.ts:readShiftStore",
-            message: "shift_assignments total count",
-            data: { totalCount },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-      }
-    } catch {
-      // ignore count errors
-    }
-    // #endregion
-
     // Supabase/PostgREST のデフォルト上限（多くの場合 1000 rows）により
     // shift_assignments が途中で切り詰められることがあるため、ページングで全件取得する
     const pageSize = 1000;
@@ -105,25 +80,6 @@ export async function readShiftStore(): Promise<ShiftStore> {
     }
 
     const shiftRows = allShiftRows;
-    // #region agent log
-    try {
-      const returnedCount = Array.isArray(shiftRows) ? shiftRows.length : 0;
-      void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          runId: debugRunId,
-          hypothesisId: "H9_shiftAssignmentsCountVsReturned",
-          location: "lib/shift-store.ts:readShiftStore",
-          message: "shift_assignments returned rows count",
-          data: { returnedCount },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    } catch {
-      // ignore log failures
-    }
-    // #endregion
 
     const assignments: ShiftAssignmentMap = {};
     for (const row of shiftRows as ShiftRow[]) {

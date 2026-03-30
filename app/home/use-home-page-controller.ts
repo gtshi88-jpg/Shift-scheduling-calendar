@@ -353,6 +353,8 @@ export function useHomePageController() {
   /** ログイン POST 〜 シフト取得完了まで true（成功時はメイン画面へ移る前の待機表示用） */
   const [loginBusy, setLoginBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
+  const saveStatusRef = useRef(saveStatus);
+  const refreshInFlightRef = useRef(false);
   const [showMonthlySummaryMobile, setShowMonthlySummaryMobile] = useState(false);
   const [showTableOptions, setShowTableOptions] = useState(false);
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
@@ -376,9 +378,6 @@ export function useHomePageController() {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [scheduleNotice, setScheduleNotice] = useState("");
 
-  const debugRunIdRef = useRef<string>(`run_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`);
-  const lastShiftEditRef = useRef<null | { dateKey: string; staffId: string; attemptedCode: ShiftCode }>(null);
-
   const refreshFromServer = useCallback(async () => {
     const shiftRes = await fetch("/api/shifts", { cache: "no-store" });
     if (!shiftRes.ok) {
@@ -391,55 +390,12 @@ export function useHomePageController() {
     setJobTypes(shiftPayload.jobTypes?.length ? shiftPayload.jobTypes : defaultStaffJobTypesSeed());
     setConfirmedMonths(toConfirmedMap(shiftPayload.confirmedMonths ?? []));
     setAuditLog(shiftPayload.auditLog ?? []);
-
-    const last = lastShiftEditRef.current;
-    if (last) {
-      const serverCode = normalizedAssignments[last.dateKey]?.[last.staffId];
-      const matchingDayKeys = Object.keys(normalizedAssignments)
-        .filter((dayKey) => normalizedAssignments[dayKey]?.[last.staffId] !== undefined)
-        .slice(0, 6);
-      const matchingByKey = matchingDayKeys.map((dayKey) => ({
-        dayKey,
-        code: normalizedAssignments[dayKey]?.[last.staffId] ?? null,
-      }));
-      const cacheBust = `cb_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
-      let serverCodeCacheBusted: ShiftCode | null = null;
-      try {
-        const shiftRes2 = await fetch(`/api/shifts?cb=${encodeURIComponent(cacheBust)}`, { cache: "no-store" });
-        if (shiftRes2.ok) {
-          const shiftPayload2 = (await shiftRes2.json()) as ShiftApiPayload;
-          const normalized2 = normalizeAssignments(shiftPayload2.assignments);
-          serverCodeCacheBusted = normalized2[last.dateKey]?.[last.staffId] ?? null;
-        }
-      } catch {
-        // ignore debug check failure
-      }
-      // #region agent log
-      void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          runId: debugRunIdRef.current,
-          hypothesisId: "H8_cacheBustedCheck",
-          location: "app/home/use-home-page-controller.ts:refreshFromServer",
-          message: "server assignments after refresh for last edit (cache bust check)",
-          data: {
-            dateKey: last.dateKey,
-            staffId: last.staffId,
-            attemptedCode: last.attemptedCode,
-            serverCode: serverCode ?? null,
-            serverCodeCacheBusted: serverCodeCacheBusted ?? null,
-            cacheBust,
-            matchingDayKeys,
-            matchingByKey,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-      lastShiftEditRef.current = null;
-    }
   }, []);
+
+  // 保存中にサーバへ再取得しない（保存の競合やチラつきを抑える）
+  useEffect(() => {
+    saveStatusRef.current = saveStatus;
+  }, [saveStatus]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -464,6 +420,47 @@ export function useHomePageController() {
     void bootstrap();
   }, []);
 
+  // 別端末での編集を数秒以内に反映するため、ログイン中は一定間隔で再取得する。
+  useEffect(() => {
+    if (!user) return;
+
+    const POLL_MS = 5000;
+
+    const maybeRefresh = async () => {
+      // 非表示中は抑制（バックグラウンドでの無駄な通信を減らす）
+      if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+      // 保存中は再取得しない
+      if (saveStatusRef.current === "saving") return;
+      // 多重起動を抑制
+      if (refreshInFlightRef.current) return;
+
+      refreshInFlightRef.current = true;
+      try {
+        await refreshFromServer();
+      } finally {
+        refreshInFlightRef.current = false;
+      }
+    };
+
+    void maybeRefresh();
+
+    const intervalId = window.setInterval(() => {
+      void maybeRefresh();
+    }, POLL_MS);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void maybeRefresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [user, refreshFromServer]);
+
   useEffect(() => {
     if (!user) {
       spPwaCalendarDefaultsAppliedRef.current = false;
@@ -483,60 +480,15 @@ export function useHomePageController() {
       return false;
     }
     setSaveStatus("saving");
-    const last = lastShiftEditRef.current;
-    // #region agent log
-    void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        runId: debugRunIdRef.current,
-        hypothesisId: "H2_putRequestPayload",
-        location: "app/home/use-home-page-controller.ts:persistData",
-        message: "PUT /api/shifts payload intent for last edit",
-        data: {
-          lastEdit: last,
-          nextCode: last ? nextAssignments[last.dateKey]?.[last.staffId] ?? null : null,
-          userRole: user.role,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     const response = await fetch("/api/shifts", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         staff: nextStaff,
         assignments: nextAssignments,
-        __debugLastEdit: last,
-        __debugRunId: debugRunIdRef.current,
       }),
     });
     if (!response.ok) {
-      let errMsg: unknown = null;
-      try {
-        errMsg = await response.json();
-      } catch {
-        // ignore
-      }
-      // #region agent log
-      void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          runId: debugRunIdRef.current,
-          hypothesisId: "H3_apiResponse",
-          location: "app/home/use-home-page-controller.ts:persistData",
-          message: "PUT /api/shifts failed response",
-          data: {
-            status: response.status,
-            errorBody: errMsg,
-            lastEdit: last,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       setSaveStatus("error");
       if (response.status === 403) {
         setScheduleNotice("保存できませんでした（権限または確定済みの月の制限）。");
@@ -544,20 +496,6 @@ export function useHomePageController() {
       await refreshFromServer();
       return false;
     }
-    // #region agent log
-    void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        runId: debugRunIdRef.current,
-        hypothesisId: "H3_apiResponse",
-        location: "app/home/use-home-page-controller.ts:persistData",
-        message: "PUT /api/shifts success response",
-        data: { status: response.status, lastEdit: last },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     setSaveStatus("idle");
     setScheduleNotice("");
     await refreshFromServer();
@@ -868,31 +806,6 @@ export function useHomePageController() {
     if (!isAdmin && !isMember) return;
     const ym = dateKey.slice(0, 7);
 
-    // #region agent log
-    void fetch("http://127.0.0.1:7251/ingest/a9594a31-b722-4292-a28c-3a9e7b290058", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        runId: debugRunIdRef.current,
-        hypothesisId: "H1_updateAssignmentGate",
-        location: "app/home/use-home-page-controller.ts:updateAssignment",
-        message: "updateAssignment intent",
-        data: {
-          role: user.role,
-          isAdmin,
-          isMember,
-          dateKey,
-          staffId,
-          attemptedCode: code,
-          ym,
-          memberMonthConfirmed: Boolean(isMember && confirmedMonths[ym]),
-          memberCodeEditable: isMember ? MEMBER_EDITABLE_CODES.includes(code) : null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     if (isMember && confirmedMonths[ym]) {
       setScheduleNotice("この月は確定済みのため、希望休・有給の変更はできません。");
       return;
@@ -900,7 +813,6 @@ export function useHomePageController() {
     if (isMember && !MEMBER_EDITABLE_CODES.includes(code)) return;
     const nextAssignments = { ...assignments, [dateKey]: { ...(assignments[dateKey] ?? {}), [staffId]: code } };
     setAssignments(nextAssignments);
-    lastShiftEditRef.current = { dateKey, staffId, attemptedCode: code };
     void persistData(staff, nextAssignments);
   };
   const openCalendarEditor = (dateKey: string, preferredStaffId?: string) => {

@@ -91,7 +91,7 @@ export function StaffJobTypesSection({
   };
 
   return (
-    <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur sm:p-6">
+    <section className="rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm sm:p-6">
       <h2 className="text-lg font-semibold text-slate-900">職種マスタ</h2>
       <p className="mt-1 text-xs text-slate-500">
         シフト表の列フィルタやスタッフの所属に使います。不要な職種は、スタッフが誰も紐づいていないときだけ削除できます。
@@ -108,14 +108,14 @@ export function StaffJobTypesSection({
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder="例: 受付"
             disabled={busy}
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none ring-indigo-100 focus:ring disabled:opacity-60"
+            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none ring-primary-ring/40 focus:ring disabled:opacity-60"
           />
         </label>
         <button
           type="button"
           disabled={busy || !newLabel.trim()}
           onClick={() => void handleCreate()}
-          className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+          className="shrink-0 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500"
         >
           追加
         </button>

@@ -13,6 +13,7 @@ export function AddStaffModal({
   counselorJobTypeId,
   jobTypes,
   submitAddStaff,
+  addStaffSubmitting,
 }: AddStaffModalProps) {
   if (!visible) {
     return null;
@@ -29,8 +30,9 @@ export function AddStaffModal({
             value={newStaffName}
             onChange={(event) => setNewStaffName(event.target.value)}
             placeholder="例: 山田"
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none ring-indigo-100 focus:ring"
+            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none ring-primary-ring/40 focus:ring disabled:cursor-not-allowed disabled:bg-slate-100"
             autoFocus
+            disabled={addStaffSubmitting}
           />
         </label>
         <label className="mt-3 block text-sm text-slate-700">
@@ -38,7 +40,8 @@ export function AddStaffModal({
           <select
             value={newStaffJobTypeId}
             onChange={(event) => setNewStaffJobTypeId(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none ring-indigo-100 focus:ring"
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none ring-primary-ring/40 focus:ring disabled:cursor-not-allowed disabled:bg-slate-100"
+            disabled={addStaffSubmitting}
           >
             {jobTypes.map((job: StaffJobTypeRecord) => (
               <option key={job.id} value={job.id}>
@@ -50,7 +53,8 @@ export function AddStaffModal({
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"
-            className="rounded-lg bg-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-300"
+            className="rounded-lg bg-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={addStaffSubmitting}
             onClick={() => {
               setVisible(false);
               setNewStaffName("");
@@ -61,11 +65,11 @@ export function AddStaffModal({
           </button>
           <button
             type="button"
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500"
             onClick={() => void submitAddStaff()}
-            disabled={!newStaffName.trim()}
+            disabled={!newStaffName.trim() || addStaffSubmitting}
           >
-            追加する
+            {addStaffSubmitting ? "追加中…" : "追加する"}
           </button>
         </div>
       </div>

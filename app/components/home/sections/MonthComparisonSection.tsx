@@ -23,7 +23,7 @@ export function MonthComparisonSection({
   monthComparisonLabels,
 }: MonthComparisonSectionProps) {
   return (
-    <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:p-6">
+    <section className="rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm md:p-6">
       <h2 className="text-lg font-semibold text-slate-900">前月・前年同月との比較</h2>
       <p className="mt-1 text-xs text-slate-500">
         ヘッダーで選んだ月（{currentMonthLabel}

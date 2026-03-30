@@ -12,7 +12,7 @@ export function TodayStatusSection({
   getShiftType,
 }: TodayStatusSectionProps) {
   return (
-    <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur">
+    <section className="rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">今日の出勤状況</h2>
         <span className="text-xs text-slate-500">{todayKey}</span>

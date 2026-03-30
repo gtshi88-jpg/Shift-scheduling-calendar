@@ -50,7 +50,7 @@ export function ShiftPrintSheet({
               key={weekday}
               className={`rounded-md py-1.5 text-center text-[11px] font-semibold print:py-1 print:text-[10px] ${
                 weekday === "土"
-                  ? "bg-blue-50 text-blue-800"
+                  ? "bg-primary-muted text-stone-800"
                   : weekday === "日"
                     ? "bg-rose-50 text-rose-800"
                     : "bg-slate-100 text-slate-700"

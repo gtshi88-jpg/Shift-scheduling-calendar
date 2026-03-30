@@ -58,4 +58,5 @@ export type AddStaffModalProps = {
   counselorJobTypeId: string;
   jobTypes: StaffJobTypeRecord[];
   submitAddStaff: () => Promise<void>;
+  addStaffSubmitting: boolean;
 };

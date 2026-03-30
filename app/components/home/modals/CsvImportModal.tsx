@@ -74,7 +74,7 @@ export function CsvImportModal({
           <button
             type="button"
             disabled={!csvImportPreview || csvImportErrors.length > 0}
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-indigo-300"
+            className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500"
             onClick={() => void applyCsvImport()}
           >
             インポート実行

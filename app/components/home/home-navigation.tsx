@@ -91,10 +91,10 @@ type NavProps = {
 
 export function HomeNavRail({ panel, onPanelChange }: NavProps) {
   return (
-    <aside className="hidden shrink-0 flex-col border-r border-slate-200/90 bg-gradient-to-b from-white via-white to-slate-50/90 shadow-[4px_0_24px_-8px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:flex lg:w-56 xl:w-60">
-      <div className="border-b border-slate-100/90 px-4 py-5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-600">メニュー</p>
-        <p className="mt-1.5 text-sm leading-snug text-slate-500">表示する画面を切り替え</p>
+    <aside className="hidden shrink-0 flex-col border-r border-stone-200/90 bg-white shadow-[4px_0_24px_-12px_rgba(28,25,23,0.08)] lg:flex lg:w-56 xl:w-60">
+      <div className="border-b border-stone-100 px-4 py-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">メニュー</p>
+        <p className="mt-1.5 text-sm leading-snug text-stone-500">表示する画面を切り替え</p>
       </div>
       <nav className="flex flex-1 flex-col gap-1.5 p-3" aria-label="メインナビゲーション">
         {NAV_ITEMS.map((item) => {
@@ -106,15 +106,15 @@ export function HomeNavRail({ panel, onPanelChange }: NavProps) {
               onClick={() => onPanelChange(item.id)}
               className={`group flex items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200 ${
                 active
-                  ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25 ring-1 ring-indigo-500/20"
-                  : "text-slate-700 hover:bg-slate-100/90 hover:shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 ring-1 ring-primary/15"
+                  : "text-stone-700 hover:bg-stone-100 hover:shadow-sm"
               }`}
             >
               <span
                 className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
                   active
                     ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600"
+                    : "bg-stone-100 text-stone-500 group-hover:bg-primary-muted group-hover:text-primary"
                 }`}
               >
                 <NavIcon id={item.id} className="h-5 w-5" />
@@ -123,7 +123,7 @@ export function HomeNavRail({ panel, onPanelChange }: NavProps) {
                 <span className="block text-sm font-semibold leading-tight">{item.label}</span>
                 <span
                   className={`mt-1 block text-xs leading-snug ${
-                    active ? "text-indigo-100" : "text-slate-500 group-hover:text-slate-600"
+                    active ? "text-primary-foreground/85" : "text-stone-500 group-hover:text-stone-600"
                   }`}
                 >
                   {item.description}
@@ -140,10 +140,10 @@ export function HomeNavRail({ panel, onPanelChange }: NavProps) {
 export function HomeNavBottom({ panel, onPanelChange }: NavProps) {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/60 bg-white/85 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_-4px_rgba(15,23,42,0.12)] backdrop-blur-2xl backdrop-saturate-150 lg:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200/80 bg-white/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_-8px_rgba(28,25,23,0.1)] backdrop-blur-xl backdrop-saturate-150 lg:hidden"
       aria-label="モバイルメニュー"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-200/80 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary-subtle to-transparent" />
       <div className="mx-auto flex w-full max-w-2xl items-end justify-between gap-0.5 px-1.5 pb-1 pt-2 sm:gap-1 sm:px-3">
         {NAV_ITEMS.map((item) => {
           const active = panel === item.id;
@@ -154,28 +154,28 @@ export function HomeNavBottom({ panel, onPanelChange }: NavProps) {
               onClick={() => onPanelChange(item.id)}
               className={`group relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-0.5 rounded-xl px-1 pb-2 pt-1 transition-all duration-200 active:scale-[0.98] sm:rounded-2xl sm:px-2 ${
                 active
-                  ? "text-indigo-700"
-                  : "text-slate-500 active:bg-slate-100/80"
+                  ? "text-primary"
+                  : "text-stone-500 active:bg-stone-100/90"
               }`}
             >
               {active ? (
                 <span
-                  className="absolute inset-x-1 top-1 bottom-0 rounded-2xl bg-gradient-to-b from-indigo-100/95 to-violet-100/80 shadow-inner ring-1 ring-indigo-200/60"
+                  className="absolute inset-x-1 top-1 bottom-0 rounded-2xl bg-primary-muted/95 shadow-inner ring-1 ring-primary-subtle/80"
                   aria-hidden
                 />
               ) : null}
               <span
                 className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
                   active
-                    ? "bg-white text-indigo-600 shadow-md shadow-indigo-500/15 ring-1 ring-indigo-100"
-                    : "text-slate-400 group-hover:bg-slate-100 group-hover:text-indigo-500"
+                    ? "bg-white text-primary shadow-md shadow-primary/15 ring-1 ring-primary-subtle"
+                    : "text-stone-400 group-hover:bg-stone-100 group-hover:text-primary"
                 }`}
               >
                 <NavIcon id={item.id} className="h-[22px] w-[22px]" />
               </span>
               <span
                 className={`relative z-10 max-w-full truncate px-0.5 text-[9px] font-bold leading-tight tracking-tight sm:text-[10px] ${
-                  active ? "text-indigo-800" : "text-slate-600"
+                  active ? "text-stone-900" : "text-stone-600"
                 }`}
               >
                 {item.label}

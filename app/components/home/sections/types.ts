@@ -114,7 +114,8 @@ export type TableInputSectionProps = {
   targetByDate: Record<string, number>;
   staffingBalanceSummary: { shortageDays: number; surplusDays: number; exactDays: number };
   moveStaff: (staffId: string, direction: -1 | 1) => Promise<void>;
-  removeStaff: (staffId: string) => Promise<void>;
+  openRetireStaffDialog: (staffId: string) => void;
+  openDeleteStaffDialog: (staffId: string) => void;
 };
 
 export type CalendarPreviewSectionProps = {

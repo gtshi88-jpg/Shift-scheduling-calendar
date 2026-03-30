@@ -37,7 +37,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
   );
 
   return (
-    <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:p-6">
+    <section className="rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm md:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">カレンダープレビュー</h2>
@@ -71,7 +71,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
             <button
               type="button"
               className={`rounded-xl px-4 py-1.5 text-sm font-medium transition ${
-                viewMode === "month" ? "bg-indigo-500 text-white shadow" : "text-slate-600 hover:bg-slate-100"
+                viewMode === "month" ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:bg-slate-100"
               }`}
               onClick={() => setViewMode("month")}
             >
@@ -80,7 +80,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
             <button
               type="button"
               className={`rounded-xl px-4 py-1.5 text-sm font-medium transition ${
-                viewMode === "week" ? "bg-indigo-500 text-white shadow" : "text-slate-600 hover:bg-slate-100"
+                viewMode === "week" ? "bg-primary text-primary-foreground shadow-sm" : "text-slate-600 hover:bg-slate-100"
               }`}
               onClick={() => setViewMode("week")}
             >
@@ -109,7 +109,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                 key={weekday}
                 className={`rounded-lg py-1 text-center text-xs font-semibold ${
                   weekday === "土"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-primary-muted text-primary"
                     : weekday === "日"
                       ? "bg-rose-50 text-rose-700"
                       : "bg-slate-100 text-slate-600"
@@ -217,7 +217,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                 key={weekday}
                 className={`rounded-lg py-2 text-center text-sm font-semibold ${
                   weekday === "土"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-primary-muted text-primary"
                     : weekday === "日"
                       ? "bg-rose-50 text-rose-700"
                       : "bg-slate-100 text-slate-600"
@@ -296,7 +296,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
                   {canEditCalendar && (
                     <button
                       type="button"
-                      className="pointer-events-auto mt-2 min-h-11 w-full rounded-md border border-dashed border-slate-300 px-2 py-2 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600 touch-manipulation"
+                      className="pointer-events-auto mt-2 min-h-11 w-full rounded-md border border-dashed border-slate-300 px-2 py-2 text-xs text-slate-500 transition hover:border-primary-subtle hover:text-primary touch-manipulation"
                       onClick={() => openCalendarEditor(cell.key)}
                     >
                       + 追加 / 編集
@@ -346,7 +346,7 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
               <input
                 type="date"
                 value={weekFocusDate}
-                className="rounded-lg border border-slate-300 px-2 py-1 outline-none ring-indigo-100 focus:ring"
+                className="rounded-lg border border-slate-300 px-2 py-1 outline-none ring-primary-ring/40 focus:ring"
                 onChange={(event) => setWeekFocusDate(event.target.value)}
               />
             </label>

@@ -1,7 +1,55 @@
 "use client";
 
-import type { ShiftCode } from "@/app/types";
+import type { ShiftCode, ShiftType } from "@/app/types";
 import type { TableInputSectionProps } from "@/app/components/home/sections/types";
+
+/** プルダウンの背景色に対応した集計数字の文字色（白背景上で読みやすい色） */
+function summaryTextColorForShiftBg(bgHex: string): string {
+  const map: Record<string, string> = {
+    "#bfdbfe": "#1d4ed8",
+    "#bbf7d0": "#047857",
+    "#fde68a": "#b45309",
+    "#fbcfe8": "#be185d",
+    "#fecaca": "#b91c1c",
+    "#ddd6fe": "#6d28d9",
+  };
+  return map[bgHex.trim().toLowerCase()] ?? "#44403c";
+}
+
+function StaffRowTotals({
+  totals,
+  getShiftType,
+}: {
+  totals: {
+    work: number;
+    absent: number;
+    paidLeave: number;
+    requestOff: number;
+    regularOff: number;
+  };
+  getShiftType: (code: ShiftCode | undefined) => ShiftType;
+}) {
+  const { work, absent, paidLeave, requestOff, regularOff } = totals;
+  const sum = work + absent + paidLeave + requestOff + regularOff;
+  const parts: { value: number; color: string }[] = [
+    { value: sum, color: "#57534e" },
+    { value: work, color: summaryTextColorForShiftBg(getShiftType("WORK").color) },
+    { value: absent, color: summaryTextColorForShiftBg(getShiftType("ABSENT").color) },
+    { value: paidLeave, color: summaryTextColorForShiftBg(getShiftType("PAID_LEAVE").color) },
+    { value: requestOff, color: summaryTextColorForShiftBg(getShiftType("REQUEST_OFF").color) },
+    { value: regularOff, color: summaryTextColorForShiftBg(getShiftType("REGULAR_OFF").color) },
+  ];
+  return (
+    <div className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-0.5 text-lg font-bold tabular-nums leading-tight sm:text-xl">
+      {parts.map((p, i) => (
+        <span key={i} className="inline-flex items-baseline">
+          {i > 0 ? <span className="mx-0.5 font-normal text-stone-300">/</span> : null}
+          <span style={{ color: p.color }}>{p.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function TableInputSection(props: TableInputSectionProps) {
   if (props.inputMode !== "table") {
@@ -39,11 +87,12 @@ export function TableInputSection(props: TableInputSectionProps) {
     targetByDate,
     staffingBalanceSummary,
     moveStaff,
-    removeStaff,
+    openRetireStaffDialog,
+    openDeleteStaffDialog,
   } = props;
 
   return (
-    <section className="rounded-3xl border border-white/70 bg-white/90 p-3 shadow-lg backdrop-blur sm:p-4 md:p-6">
+    <section className="rounded-xl border border-stone-200/80 bg-white p-3 shadow-sm sm:p-4 md:p-6">
       <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
         <div className="min-w-0 shrink-0">
           <h2 className="text-lg font-semibold">表形式入力</h2>
@@ -85,7 +134,7 @@ export function TableInputSection(props: TableInputSectionProps) {
             min={0}
             value={targetWeekday}
             onChange={(event) => setTargetWeekday(Math.max(0, Number(event.target.value || 0)))}
-            className="w-14 rounded-lg border border-slate-300 px-2 py-1 text-right outline-none ring-indigo-100 focus:ring"
+            className="w-14 rounded-lg border border-slate-300 px-2 py-1 text-right outline-none ring-primary-ring/40 focus:ring"
           />
         </label>
         <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
@@ -95,7 +144,7 @@ export function TableInputSection(props: TableInputSectionProps) {
             min={0}
             value={targetWeekend}
             onChange={(event) => setTargetWeekend(Math.max(0, Number(event.target.value || 0)))}
-            className="w-14 rounded-lg border border-slate-300 px-2 py-1 text-right outline-none ring-indigo-100 focus:ring"
+            className="w-14 rounded-lg border border-slate-300 px-2 py-1 text-right outline-none ring-primary-ring/40 focus:ring"
           />
         </label>
         <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
@@ -105,7 +154,7 @@ export function TableInputSection(props: TableInputSectionProps) {
             min={0}
             value={targetHoliday}
             onChange={(event) => setTargetHoliday(Math.max(0, Number(event.target.value || 0)))}
-            className="w-14 rounded-lg border border-slate-300 px-2 py-1 text-right outline-none ring-indigo-100 focus:ring"
+            className="w-14 rounded-lg border border-slate-300 px-2 py-1 text-right outline-none ring-primary-ring/40 focus:ring"
           />
         </label>
         <button
@@ -129,7 +178,7 @@ export function TableInputSection(props: TableInputSectionProps) {
           <button
             type="button"
             onClick={() => setCsvImportOpen(true)}
-            className="rounded-xl bg-indigo-600 px-3 py-2 text-sm text-white transition hover:bg-indigo-500"
+            className="rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground transition hover:bg-primary-hover"
           >
             CSVインポート
           </button>
@@ -144,7 +193,7 @@ export function TableInputSection(props: TableInputSectionProps) {
               value={holidayDatesInput}
               onChange={(event) => setHolidayDatesInput(event.target.value)}
               placeholder="2026-03-20,2026-03-21"
-              className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none ring-indigo-100 focus:ring"
+              className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none ring-primary-ring/40 focus:ring"
             />
           </label>
         </div>
@@ -153,7 +202,7 @@ export function TableInputSection(props: TableInputSectionProps) {
         <table className="min-w-full border-collapse text-sm">
           <thead>
             <tr className="bg-slate-50">
-              <th className="sticky left-0 z-10 min-w-[7.5rem] border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left sm:min-w-40 sm:px-3">
+              <th className="sticky left-0 z-10 w-[12rem] min-w-[12rem] border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left sm:w-[13rem] sm:min-w-[13rem] sm:px-3">
                 スタッフ
               </th>
               {visibleMonthDays.map((day) => (
@@ -165,8 +214,8 @@ export function TableInputSection(props: TableInputSectionProps) {
                   <div className="text-[10px] text-slate-400">{day.weekday}</div>
                 </th>
               ))}
-              <th className="min-w-[11rem] border-b border-slate-200 px-2 py-2 text-center text-xs text-slate-600 sm:min-w-[12.5rem]">
-                <div>合計（出 / 欠 / 有 / 希 / 公休）</div>
+              <th className="min-w-[13rem] border-b border-slate-200 px-2 py-2 text-center text-xs text-slate-600 sm:min-w-[15rem]">
+                <div>合計（計 / 出 / 欠 / 有 / 希 / 公休）</div>
                 <div className="mt-0.5 text-[10px] font-normal text-slate-400">全{monthDaysInMonth}日分</div>
               </th>
             </tr>
@@ -174,42 +223,51 @@ export function TableInputSection(props: TableInputSectionProps) {
           <tbody>
             {monthVisibleStaff.map((member, index) => (
               <tr key={member.id}>
-                <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-2 py-2 align-middle sm:px-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span>{member.name}</span>
-                      {isAdmin && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700 disabled:opacity-40"
-                            disabled={index === 0}
-                            onClick={() => void moveStaff(member.id, -1)}
-                            title="上へ移動"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700 disabled:opacity-40"
-                            disabled={index === monthVisibleStaff.length - 1}
-                            onClick={() => void moveStaff(member.id, 1)}
-                            title="下へ移動"
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className="rounded bg-rose-100 px-2 py-1 text-xs text-rose-700"
-                        onClick={() => void removeStaff(member.id)}
-                      >
-                        退職
-                      </button>
-                    )}
+                <td className="sticky left-0 z-10 w-[12rem] min-w-[12rem] border-b border-r border-slate-200 bg-white px-2 py-2 align-top sm:w-[13rem] sm:min-w-[13rem] sm:px-3">
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <span
+                      className="block min-w-0 truncate text-sm font-medium text-stone-900"
+                      title={member.name}
+                    >
+                      {member.name}
+                    </span>
+                    {isAdmin ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="shrink-0 rounded border border-stone-200 bg-stone-50 px-1.5 py-0.5 text-[10px] leading-none text-stone-700 disabled:opacity-40"
+                          disabled={index === 0}
+                          onClick={() => void moveStaff(member.id, -1)}
+                          title="上へ移動"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded border border-stone-200 bg-stone-50 px-1.5 py-0.5 text-[10px] leading-none text-stone-700 disabled:opacity-40"
+                          disabled={index === monthVisibleStaff.length - 1}
+                          onClick={() => void moveStaff(member.id, 1)}
+                          title="下へ移動"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded bg-rose-100 px-2 py-1 text-xs text-rose-800 transition hover:bg-rose-200"
+                          onClick={() => openRetireStaffDialog(member.id)}
+                        >
+                          退職
+                        </button>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-800 transition hover:bg-stone-50"
+                          onClick={() => openDeleteStaffDialog(member.id)}
+                          title="誤入力したスタッフを一覧から削除します"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </td>
                 {visibleMonthDays.map((day) => {
@@ -235,26 +293,24 @@ export function TableInputSection(props: TableInputSectionProps) {
                     </td>
                   );
                 })}
-                <td className="border-b border-slate-200 px-2 py-1 text-center text-xs text-slate-700">
-                  <span className="font-semibold">{totalsByStaff[member.id]?.work ?? 0}</span> /{" "}
-                  <span className="font-semibold text-rose-700">{totalsByStaff[member.id]?.absent ?? 0}</span>{" "}
-                  /{" "}
-                  <span className="font-semibold text-amber-700">
-                    {totalsByStaff[member.id]?.paidLeave ?? 0}
-                  </span>{" "}
-                  /{" "}
-                  <span className="font-semibold text-fuchsia-700">
-                    {totalsByStaff[member.id]?.requestOff ?? 0}
-                  </span>{" "}
-                  /{" "}
-                  <span className="font-semibold text-red-600">
-                    {totalsByStaff[member.id]?.regularOff ?? 0}
-                  </span>
+                <td className="border-b border-slate-200 px-1.5 py-2 text-center align-middle">
+                  <StaffRowTotals
+                    totals={
+                      totalsByStaff[member.id] ?? {
+                        work: 0,
+                        absent: 0,
+                        paidLeave: 0,
+                        requestOff: 0,
+                        regularOff: 0,
+                      }
+                    }
+                    getShiftType={getShiftType}
+                  />
                 </td>
               </tr>
             ))}
             <tr className="bg-slate-50">
-              <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+              <td className="sticky left-0 z-10 w-[12rem] min-w-[12rem] border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 sm:w-[13rem] sm:min-w-[13rem]">
                 日別人数（出 / 欠 / 有 / 希 / 公休）
               </td>
               {visibleMonthDays.map((day) => (
@@ -278,8 +334,8 @@ export function TableInputSection(props: TableInputSectionProps) {
                 計{monthDaysInMonth}日
               </td>
             </tr>
-            <tr className="bg-indigo-50/50">
-              <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-indigo-50/60 px-3 py-2 text-xs font-semibold text-indigo-900">
+            <tr className="bg-primary-muted/60">
+              <td className="sticky left-0 z-10 w-[12rem] min-w-[12rem] border-b border-r border-stone-200 bg-primary-muted/80 px-3 py-2 text-xs font-semibold text-stone-900 sm:w-[13rem] sm:min-w-[13rem]">
                 稼働差分（平日{targetWeekday} / 土日{targetWeekend} / 祝日{targetHoliday}）
               </td>
               {visibleMonthDays.map((day) => {
@@ -306,7 +362,7 @@ export function TableInputSection(props: TableInputSectionProps) {
                   </td>
                 );
               })}
-              <td className="border-b border-slate-200 px-2 py-2 text-center text-[11px] text-indigo-700">
+              <td className="border-b border-stone-200 px-2 py-2 text-center text-[11px] text-primary">
                 稼働人数 / 差分
               </td>
             </tr>

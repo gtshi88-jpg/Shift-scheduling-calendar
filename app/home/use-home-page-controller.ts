@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { parseFetchJsonBody } from "@/lib/parse-json-response";
 import type {
@@ -308,6 +308,23 @@ type ShiftApiPayload = {
   auditLog?: AuditLogEntry[];
 };
 
+function formatLocalDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Tailwind `max-md`（767px以下）またはホーム画面追加などのスタンドアロン表示 */
+function isNarrowViewportOrStandalonePwa(): boolean {
+  if (typeof window === "undefined") return false;
+  const narrow = window.matchMedia("(max-width: 767px)").matches;
+  const standalone =
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches;
+  return narrow || standalone;
+}
+
 export function useHomePageController() {
   const fallback = createInitialData(new Date(2026, 2, 1));
   const [currentMonth, setCurrentMonth] = useState(() => new Date(2026, 2, 1));
@@ -321,6 +338,8 @@ export function useHomePageController() {
   const [showRegularOffInMonth, setShowRegularOffInMonth] = useState(false);
   const [previewSortMode, setPreviewSortMode] = useState<PreviewSortMode>("presentFirst");
   const [weekFocusDate, setWeekFocusDate] = useState("2026-03-01");
+  /** SP / PWA 向けに週表示・今日基準を一度だけ適用（手動切替を上書きしない） */
+  const spPwaCalendarDefaultsAppliedRef = useRef(false);
   const [staff, setStaff] = useState<StaffMember[]>(() => fallback.staff.map(normalizeStaffMember));
   const [jobTypes, setJobTypes] = useState<StaffJobTypeRecord[]>(() => defaultStaffJobTypesSeed());
   /** 初期は「全職種」ではなく 1 職種（カウンセラー相当）で情報量を抑える */
@@ -338,8 +357,13 @@ export function useHomePageController() {
   const [showTableOptions, setShowTableOptions] = useState(false);
   const [selectedDateDetail, setSelectedDateDetail] = useState<string | null>(null);
   const [addStaffModalOpen, setAddStaffModalOpen] = useState(false);
+  const [addStaffSubmitting, setAddStaffSubmitting] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffJobTypeId, setNewStaffJobTypeId] = useState(FALLBACK_STAFF_JOB_TYPE_ID);
+  const [staffActionDialog, setStaffActionDialog] = useState<
+    null | { kind: "retire" | "delete"; staffId: string; name: string }
+  >(null);
+  const [staffActionBusy, setStaffActionBusy] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [csvImportErrors, setCsvImportErrors] = useState<string[]>([]);
   const [csvImportPreview, setCsvImportPreview] = useState<CsvImportPreview | null>(null);
@@ -387,6 +411,20 @@ export function useHomePageController() {
     }
     void bootstrap();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      spPwaCalendarDefaultsAppliedRef.current = false;
+      return;
+    }
+    if (spPwaCalendarDefaultsAppliedRef.current) return;
+    if (!isNarrowViewportOrStandalonePwa()) return;
+    spPwaCalendarDefaultsAppliedRef.current = true;
+    const today = new Date();
+    setViewMode("week");
+    setWeekFocusDate(formatLocalDateKey(today));
+    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+  }, [user]);
 
   const persistData = async (nextStaff: StaffMember[], nextAssignments: ShiftAssignmentMap) => {
     if (!user) {
@@ -749,10 +787,14 @@ export function useHomePageController() {
     updateAssignment(calendarEditor.dateKey, calendarEditor.staffId, calendarEditor.code);
     setCalendarEditor(null);
   };
-  const addStaff = async (nameInput: string) => {
-    if (!isAdmin) return;
+  const addStaff = async (nameInput: string): Promise<boolean> => {
+    if (!isAdmin) {
+      return false;
+    }
     const name = nameInput.trim();
-    if (!name) return;
+    if (!name) {
+      return false;
+    }
     const item: StaffMember = {
       id: crypto.randomUUID(),
       name,
@@ -767,19 +809,92 @@ export function useHomePageController() {
     }
     setStaff(nextStaff);
     setAssignments(nextAssignments);
-    await persistData(nextStaff, nextAssignments);
+    return persistData(nextStaff, nextAssignments);
   };
   const submitAddStaff = async () => {
-    await addStaff(newStaffName);
-    setNewStaffName("");
-    setNewStaffJobTypeId(counselorJobTypeId);
-    setAddStaffModalOpen(false);
+    if (!isAdmin || addStaffSubmitting) {
+      return;
+    }
+    const name = newStaffName.trim();
+    if (!name) {
+      return;
+    }
+    setAddStaffSubmitting(true);
+    try {
+      const ok = await addStaff(name);
+      if (ok) {
+        setNewStaffName("");
+        setNewStaffJobTypeId(counselorJobTypeId);
+        setAddStaffModalOpen(false);
+      }
+    } finally {
+      setAddStaffSubmitting(false);
+    }
   };
-  const removeStaff = async (staffId: string) => {
-    if (!isAdmin) return;
-    const nextStaff = staff.map((member) => (member.id === staffId ? { ...member, activeTo: currentMonthEndKey } : member));
+  const removeStaff = async (staffId: string): Promise<boolean> => {
+    if (!isAdmin) {
+      return false;
+    }
+    const nextStaff = staff.map((member) =>
+      member.id === staffId ? { ...member, activeTo: currentMonthEndKey } : member,
+    );
     setStaff(nextStaff);
-    await persistData(nextStaff, assignments);
+    return persistData(nextStaff, assignments);
+  };
+  const deleteStaffPermanently = async (staffId: string): Promise<boolean> => {
+    if (!isAdmin) {
+      return false;
+    }
+    const nextStaff = staff.filter((member) => member.id !== staffId);
+    const nextAssignments: ShiftAssignmentMap = {};
+    for (const [dateKey, byStaff] of Object.entries(assignments)) {
+      const rest = { ...byStaff };
+      delete rest[staffId];
+      nextAssignments[dateKey] = rest;
+    }
+    setStaff(nextStaff);
+    setAssignments(nextAssignments);
+    return persistData(nextStaff, nextAssignments);
+  };
+  const openRetireStaffDialog = (staffId: string) => {
+    if (!isAdmin) {
+      return;
+    }
+    const member = staff.find((m) => m.id === staffId);
+    if (!member) {
+      return;
+    }
+    setStaffActionDialog({ kind: "retire", staffId, name: member.name });
+  };
+  const openDeleteStaffDialog = (staffId: string) => {
+    if (!isAdmin) {
+      return;
+    }
+    const member = staff.find((m) => m.id === staffId);
+    if (!member) {
+      return;
+    }
+    setStaffActionDialog({ kind: "delete", staffId, name: member.name });
+  };
+  const closeStaffActionDialog = () => {
+    if (!staffActionBusy) {
+      setStaffActionDialog(null);
+    }
+  };
+  const confirmStaffActionDialog = async () => {
+    if (!staffActionDialog || staffActionBusy) {
+      return;
+    }
+    setStaffActionBusy(true);
+    try {
+      const { kind, staffId } = staffActionDialog;
+      const ok = kind === "retire" ? await removeStaff(staffId) : await deleteStaffPermanently(staffId);
+      if (ok) {
+        setStaffActionDialog(null);
+      }
+    } finally {
+      setStaffActionBusy(false);
+    }
   };
   const moveStaff = async (staffId: string, direction: -1 | 1) => {
     if (!isAdmin) return;
@@ -978,6 +1093,7 @@ export function useHomePageController() {
     csvImportErrors,
     csvImportPreview,
     addStaffModalOpen,
+    addStaffSubmitting,
     newStaffName,
     newStaffJobTypeId,
     setNewStaffJobTypeId,
@@ -1009,7 +1125,12 @@ export function useHomePageController() {
     selectableShiftTypes,
     updateAssignment,
     moveStaff,
-    removeStaff,
+    staffActionDialog,
+    staffActionBusy,
+    openRetireStaffDialog,
+    openDeleteStaffDialog,
+    closeStaffActionDialog,
+    confirmStaffActionDialog,
     setPreviewSortMode,
     setViewMode,
     setShowRegularOffInMonth,

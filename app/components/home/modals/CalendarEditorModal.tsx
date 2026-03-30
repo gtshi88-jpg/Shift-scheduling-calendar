@@ -18,8 +18,8 @@ export function CalendarEditorModal(props: CalendarEditorModalProps) {
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-indigo-100 bg-white p-4 shadow-2xl">
-        <p className="text-sm font-semibold text-indigo-800">{calendarEditor.dateKey} のシフト編集</p>
+      <div className="w-full max-w-md rounded-xl border border-stone-200/80 bg-white p-4 shadow-xl">
+        <p className="text-sm font-semibold text-stone-900">{calendarEditor.dateKey} のシフト編集</p>
         <div className="mt-3 flex flex-col gap-3">
           <label className="text-sm text-slate-700">
             スタッフ
@@ -72,7 +72,7 @@ export function CalendarEditorModal(props: CalendarEditorModalProps) {
             </button>
             <button
               type="button"
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white transition hover:bg-indigo-500"
+              className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition hover:bg-primary-hover"
               onClick={applyCalendarEditor}
             >
               保存

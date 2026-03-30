@@ -12,7 +12,7 @@ export function MonthlySummarySection({
 }: MonthlySummarySectionProps) {
   return (
     <>
-      <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:hidden">
+      <section className="rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm md:hidden">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold">月間サマリー</h2>
@@ -42,7 +42,7 @@ export function MonthlySummarySection({
         )}
       </section>
 
-      <section className="hidden rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:block md:p-6">
+      <section className="hidden rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm md:block md:p-6">
         <h2 className="text-lg font-semibold">月間サマリー</h2>
         <p className="mt-1 text-xs text-slate-500">{getMonthLabel(currentMonth)} の集計</p>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">

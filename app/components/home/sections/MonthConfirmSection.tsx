@@ -34,7 +34,7 @@ export function MonthConfirmSection({
   onUnconfirm,
 }: MonthConfirmSectionProps) {
   return (
-    <section className="rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg backdrop-blur md:p-6">
+    <section className="rounded-xl border border-stone-200/80 bg-white p-4 shadow-sm md:p-6">
       <h2 className="text-lg font-semibold text-slate-900">月の確定</h2>
       <p className="mt-1 text-sm text-slate-600">
         表示中の月（{currentYearMonthKey}）を確定すると、一般スタッフはその月のシフトを編集できなくなります。
@@ -55,7 +55,7 @@ export function MonthConfirmSection({
               <button
                 type="button"
                 onClick={() => void onConfirm()}
-                className="min-h-11 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500"
+                className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary-hover"
               >
                 この月を確定
               </button>

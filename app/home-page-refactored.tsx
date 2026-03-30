@@ -27,6 +27,7 @@ import {
   CalendarEditorModal,
   CsvImportModal,
   DateDetailModal,
+  StaffConfirmModal,
 } from "@/app/components/home/modals";
 import {
   SHIFT_SHORT_LABEL,
@@ -55,7 +56,7 @@ export default function HomePageRefactored() {
 
   return (
     <>
-      <div className="flex bg-gradient-to-br from-slate-100 via-sky-50 to-indigo-50 text-slate-900 print:hidden max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:overflow-hidden md:min-h-screen">
+      <div className="flex bg-stone-100 text-stone-900 print:hidden max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:min-h-0 max-md:overflow-hidden md:min-h-screen">
         <HomeNavRail panel={navPanel} onPanelChange={setNavPanel} />
         <div className="flex min-w-0 flex-1 flex-col max-md:min-h-0 max-md:overflow-hidden">
           <div className="mx-auto w-full max-w-7xl shrink-0 px-4 pb-2 pt-2 md:px-8 md:pt-6">
@@ -198,7 +199,8 @@ export default function HomePageRefactored() {
                   targetByDate={controller.targetByDate}
                   staffingBalanceSummary={controller.staffingBalanceSummary}
                   moveStaff={controller.moveStaff}
-                  removeStaff={controller.removeStaff}
+                  openRetireStaffDialog={controller.openRetireStaffDialog}
+                  openDeleteStaffDialog={controller.openDeleteStaffDialog}
                 />
                 <CalendarPreviewSection
                   currentMonth={controller.currentMonth}
@@ -264,6 +266,15 @@ export default function HomePageRefactored() {
         counselorJobTypeId={controller.counselorJobTypeId}
         jobTypes={controller.jobTypes}
         submitAddStaff={controller.submitAddStaff}
+        addStaffSubmitting={controller.addStaffSubmitting}
+      />
+      <StaffConfirmModal
+        visible={Boolean(controller.isAdmin && controller.staffActionDialog)}
+        variant={controller.staffActionDialog?.kind ?? "retire"}
+        staffName={controller.staffActionDialog?.name ?? ""}
+        busy={controller.staffActionBusy}
+        onCancel={controller.closeStaffActionDialog}
+        onConfirm={controller.confirmStaffActionDialog}
       />
       <ShiftPrintSheet
         currentMonth={controller.currentMonth}

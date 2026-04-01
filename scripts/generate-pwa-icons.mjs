@@ -69,11 +69,36 @@ function createRgbPng(width, height, r, g, b) {
   ]);
 }
 
+function createIcoFromPng(pngData, width, height) {
+  const iconDir = Buffer.alloc(6);
+  iconDir.writeUInt16LE(0, 0);
+  iconDir.writeUInt16LE(1, 2);
+  iconDir.writeUInt16LE(1, 4);
+
+  const entry = Buffer.alloc(16);
+  entry[0] = width >= 256 ? 0 : width;
+  entry[1] = height >= 256 ? 0 : height;
+  entry[2] = 0;
+  entry[3] = 0;
+  entry.writeUInt16LE(1, 4);
+  entry.writeUInt16LE(32, 6);
+  entry.writeUInt32LE(pngData.length, 8);
+  entry.writeUInt32LE(6 + 16, 12);
+
+  return Buffer.concat([iconDir, entry, pngData]);
+}
+
 const publicDir = join(__dirname, "..", "public");
 const blue = { r: 37, g: 99, b: 235 };
 
-writeFileSync(join(publicDir, "icon-192x192.png"), createRgbPng(192, 192, blue.r, blue.g, blue.b));
-writeFileSync(join(publicDir, "icon-512x512.png"), createRgbPng(512, 512, blue.r, blue.g, blue.b));
-writeFileSync(join(publicDir, "apple-touch-icon.png"), createRgbPng(180, 180, blue.r, blue.g, blue.b));
+const icon192 = createRgbPng(192, 192, blue.r, blue.g, blue.b);
+const icon512 = createRgbPng(512, 512, blue.r, blue.g, blue.b);
+const appleTouch = createRgbPng(180, 180, blue.r, blue.g, blue.b);
+const favicon = createIcoFromPng(icon192, 192, 192);
 
-console.log("Wrote PWA icons to public/");
+writeFileSync(join(publicDir, "icon-192x192.png"), icon192);
+writeFileSync(join(publicDir, "icon-512x512.png"), icon512);
+writeFileSync(join(publicDir, "apple-touch-icon.png"), appleTouch);
+writeFileSync(join(publicDir, "favicon.ico"), favicon);
+
+console.log("Wrote PWA icons + favicon to public/");

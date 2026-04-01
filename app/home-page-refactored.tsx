@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   HomeNavBottom,
   HomeNavRail,
@@ -37,7 +37,11 @@ import {
 
 export default function HomePageRefactored() {
   const controller = useHomePageController();
-  const [navPanel, setNavPanel] = useState<HomeNavPanel>("input");
+  const [navPanel, setNavPanel] = useState<HomeNavPanel>("dashboard");
+
+  useEffect(() => {
+    if (controller.user) setNavPanel("dashboard");
+  }, [controller.user]);
 
   if (controller.authLoading) return <LoadingView />;
   if (!controller.user) {
@@ -92,6 +96,10 @@ export default function HomePageRefactored() {
                   mobileTodayAbsent={controller.mobileTodayAbsent}
                   assignments={controller.assignments}
                   getShiftType={controller.getShiftType}
+                  staffJobFilter={controller.staffJobFilter}
+                  setStaffJobFilter={controller.setStaffJobFilter}
+                  staffJobFilterOptions={controller.staffJobFilterOptions}
+                  jobTypes={controller.jobTypes}
                 />
                 <MonthlySummarySection
                   currentMonth={controller.currentMonth}
@@ -133,6 +141,9 @@ export default function HomePageRefactored() {
                   getPreviewStaffByDate={controller.getPreviewStaffByDate}
                   assignments={controller.assignments}
                   getShiftType={controller.getShiftType}
+                  staffJobFilter={controller.staffJobFilter}
+                  setStaffJobFilter={controller.setStaffJobFilter}
+                  staffJobFilterOptions={controller.staffJobFilterOptions}
                   user={controller.user}
                   inputMode={controller.inputMode}
                   openCalendarEditor={controller.openCalendarEditor}
@@ -219,6 +230,9 @@ export default function HomePageRefactored() {
                   getPreviewStaffByDate={controller.getPreviewStaffByDate}
                   assignments={controller.assignments}
                   getShiftType={controller.getShiftType}
+                  staffJobFilter={controller.staffJobFilter}
+                  setStaffJobFilter={controller.setStaffJobFilter}
+                  staffJobFilterOptions={controller.staffJobFilterOptions}
                   user={controller.user}
                   inputMode={controller.inputMode}
                   openCalendarEditor={controller.openCalendarEditor}

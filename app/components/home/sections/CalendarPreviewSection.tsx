@@ -23,6 +23,9 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
     getPreviewStaffByDate,
     assignments,
     getShiftType,
+    staffJobFilter,
+    setStaffJobFilter,
+    staffJobFilterOptions,
     user,
     inputMode,
     openCalendarEditor,
@@ -88,6 +91,23 @@ export function CalendarPreviewSection(props: CalendarPreviewSectionProps) {
             </button>
           </div>
         </div>
+      </div>
+      <div className="mb-4 md:hidden">
+        <label className="block text-xs font-medium text-slate-600" htmlFor="calendar-preview-job-filter">
+          表示する職種
+        </label>
+        <select
+          id="calendar-preview-job-filter"
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
+          value={staffJobFilter}
+          onChange={(event) => setStaffJobFilter(event.target.value)}
+        >
+          {staffJobFilterOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {viewMode === "month" && (

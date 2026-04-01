@@ -8,6 +8,7 @@ import type {
   ShiftCode,
   ShiftType,
   StaffJobFilter,
+  StaffJobTypeRecord,
   StaffMember,
   ViewMode,
 } from "@/app/types";
@@ -61,6 +62,10 @@ export type TodayStatusSectionProps = {
   mobileTodayAbsent: StaffMember[];
   assignments: ShiftAssignmentMap;
   getShiftType: (code: ShiftCode | undefined) => ShiftType;
+  staffJobFilter: StaffJobFilter;
+  setStaffJobFilter: Dispatch<SetStateAction<StaffJobFilter>>;
+  staffJobFilterOptions: { value: StaffJobFilter; label: string }[];
+  jobTypes: StaffJobTypeRecord[];
 };
 
 export type MonthlySummarySectionProps = {
@@ -135,6 +140,9 @@ export type CalendarPreviewSectionProps = {
   getPreviewStaffByDate: (dateKey: string) => StaffMember[];
   assignments: ShiftAssignmentMap;
   getShiftType: (code: ShiftCode | undefined) => ShiftType;
+  staffJobFilter: StaffJobFilter;
+  setStaffJobFilter: Dispatch<SetStateAction<StaffJobFilter>>;
+  staffJobFilterOptions: { value: StaffJobFilter; label: string }[];
   user: AuthUser | null;
   inputMode: InputMode;
   openCalendarEditor: (dateKey: string, preferredStaffId?: string) => void;
